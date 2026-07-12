@@ -18,14 +18,20 @@ categories.workspace = true
 purify-core.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+# NTFS structure parsing is safe and portable (no_std-friendly), so it compiles
+# and is unit-tested on every platform against a filesystem image. Our own
+# unsafe surface is confined to acquiring a raw volume handle on Windows.
+ntfs = "0.4"
 
-# Windows-only: raw volume access and NTFS structure parsing.
-# The `ntfs` crate parses MFT records without unsafe, so our own unsafe surface
-# stays confined to opening `\\.\C:` and reading raw sectors via `windows`.
+[dev-dependencies]
+flate2 = "1"
+tempfile = "3"
+
+# Windows-only: raw volume access. We open `\\.\C:` for reading. A read-only
+# volume handle can be obtained with std::fs, keeping unsafe out of the open
+# path; the `windows` crate is reserved for aligned raw-sector reads if needed.
 [target.'cfg(windows)'.dependencies]
-# Uncommented and wired up in Phase 1; declared here to document intent.
-# ntfs = "0.4"
-# windows = { version = "0.58", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_System_IO"] }
+# windows = { version = "0.62", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_System_IO"] }
 
 # This crate deliberately does NOT inherit the workspace lint table, because it
 # is the single sanctioned home for `unsafe`. Every other lint is mirrored;

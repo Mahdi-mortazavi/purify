@@ -1,73 +1,35 @@
 //! Core engine for **purify** — the pure-Rust, platform-agnostic heart of the
 //! tool.
 //!
-//! This crate deliberately contains **no** `unsafe` and **no** OS-specific
-//! filesystem access. Raw NTFS/volume access lives behind the [`Scanner`] trait
-//! and is implemented in the `purify-ntfs` crate. Everything here can be unit
-//! tested against a synthetic filesystem without touching a real disk.
+//! This crate contains **no** `unsafe` and **no** OS-specific raw-device access.
+//! Raw NTFS/volume access lives behind the [`Scanner`] trait and is implemented
+//! in the `purify-ntfs` crate. Everything here can be unit tested against a
+//! synthetic filesystem without touching a real disk.
 //!
-//! At Phase 0 this crate only defines the shared vocabulary of the project
-//! (error type, byte helpers, and the scanning trait). Later phases fill in the
-//! rule engine, deduplication, and quarantine logic.
+//! # Modules
+//! - [`error`] — typed error and result.
+//! - [`model`] — the [`FileEntry`] data model.
+//! - [`scan`] — the [`Scanner`] trait and the portable [`WalkScanner`].
+//! - [`usage`] — disk-usage aggregation into a [`usage::UsageReport`].
+//! - [`safety`] — protected-path guards shared across the engine.
+//!
+//! Later phases add `rules`, `suggest`, `quarantine`, `organize`, and
+//! `guardian` modules.
 
-use std::path::PathBuf;
+// The workspace forbids `unwrap`/`expect`/`panic` on production paths. Test
+// code legitimately uses them for assertions, so relax the lints under `test`.
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
-/// Errors surfaced by the core engine.
-///
-/// Library code returns typed errors via `thiserror`; binaries are free to wrap
-/// these in `anyhow` for reporting. We never `panic!` on a production path.
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    /// An I/O operation failed while scanning or moving files.
-    #[error("i/o error at {path}: {source}")]
-    Io {
-        /// The path being operated on when the failure occurred.
-        path: PathBuf,
-        /// The underlying I/O error.
-        #[source]
-        source: std::io::Error,
-    },
+pub mod error;
+pub mod model;
+pub mod safety;
+pub mod scan;
+pub mod usage;
 
-    /// The requested scan target does not exist or is not accessible.
-    #[error("scan target not found or inaccessible: {0}")]
-    TargetNotFound(PathBuf),
-
-    /// A feature is not available on the current platform (e.g. direct MFT
-    /// reads on non-Windows). Callers should fall back to a portable strategy.
-    #[error("unsupported on this platform: {0}")]
-    Unsupported(String),
-}
-
-/// Convenience alias for results produced by the core engine.
-pub type Result<T> = std::result::Result<T, Error>;
-
-/// A single entry discovered by a [`Scanner`].
-///
-/// Kept intentionally small and `Copy`-free so it can represent millions of
-/// files without excessive memory pressure during a full-drive scan.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FileEntry {
-    /// Absolute path to the file.
-    pub path: PathBuf,
-    /// Logical size in bytes.
-    pub size: u64,
-    /// Whether the entry is a directory.
-    pub is_dir: bool,
-}
-
-/// Abstraction over a filesystem-scanning strategy.
-///
-/// The high-performance implementation reads the NTFS Master File Table
-/// directly (`purify-ntfs`); a portable implementation walks the directory tree
-/// (added in Phase 1). Keeping this a trait lets the core engine and CLI stay
-/// completely platform-agnostic and fully unit-testable.
-pub trait Scanner {
-    /// Scan `root`, invoking `sink` once per discovered [`FileEntry`].
-    ///
-    /// Streaming via a callback (rather than returning a `Vec`) keeps peak
-    /// memory bounded on drives with tens of millions of files.
-    fn scan(&self, root: &std::path::Path, sink: &mut dyn FnMut(FileEntry)) -> Result<()>;
-}
+pub use error::{Error, Result};
+pub use model::FileEntry;
+pub use scan::{Scanner, WalkScanner};
+pub use usage::{Consumer, UsageCollector, UsageReport};
 
 /// Format a byte count into a human-readable string using binary (IEC) units.
 ///

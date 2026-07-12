@@ -40,8 +40,17 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 toml = "0.8"
 clap = { version = "4", features = ["derive"] }
+jwalk = "0.8"
+blake3 = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+rayon = "1"
+walkdir = "2"
+humantime = "2"
+dirs = "5"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 
 # Internal crates
 purify-core = { path = "crates/purify-core" }

@@ -23,6 +23,7 @@ purify-core.workspace = true
 purify-ntfs.workspace = true
 anyhow.workspace = true
 clap.workspace = true
+serde_json.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
