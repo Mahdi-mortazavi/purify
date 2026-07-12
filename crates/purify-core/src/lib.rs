@@ -14,16 +14,20 @@
 //! - [`rules`] — the cleanup rule engine and TOML signatures.
 //! - [`suggest`] — cleanup suggestions with confidence levels.
 //! - [`quarantine`] — reversible, metadata-tracked file quarantine.
+//! - [`organize`] — rule-driven file organization with undo.
+//! - [`guardian`] — disk-space monitoring logic.
+//! - [`fsutil`] — shared move/copy/remove helpers.
 //! - [`safety`] — protected-path guards shared across the engine.
-//!
-//! Later phases add `organize` and `guardian` modules.
 
 // The workspace forbids `unwrap`/`expect`/`panic` on production paths. Test
 // code legitimately uses them for assertions, so relax the lints under `test`.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
 pub mod error;
+pub mod fsutil;
+pub mod guardian;
 pub mod model;
+pub mod organize;
 pub mod quarantine;
 pub mod rules;
 pub mod safety;
@@ -32,7 +36,9 @@ pub mod suggest;
 pub mod usage;
 
 pub use error::{Error, Result};
+pub use guardian::{GuardianReport, Pressure, SpaceInfo, Thresholds};
 pub use model::FileEntry;
+pub use organize::{Move, OrganizeLog, OrganizePlan, OrganizeRule, Organizer};
 pub use quarantine::{ItemStatus, QuarantineItem, QuarantineRequest, QuarantineStore};
 pub use rules::{Confidence, MatchRule, Signature, SignatureSet};
 pub use scan::{Scanner, WalkScanner};

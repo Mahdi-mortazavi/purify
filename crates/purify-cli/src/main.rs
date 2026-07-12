@@ -6,8 +6,9 @@ use anyhow::Context;
 use clap::{Parser, Subcommand};
 use purify_core::scan::Scanner;
 use purify_core::{
-    format_bytes, AnalysisReport, Analyzer, Confidence, FileEntry, ItemStatus, QuarantineRequest,
-    QuarantineStore, SignatureSet, Suggestion, UsageCollector, UsageReport, WalkScanner,
+    format_bytes, guardian, AnalysisReport, Analyzer, Confidence, FileEntry, ItemStatus,
+    OrganizeLog, Organizer, QuarantineRequest, QuarantineStore, SignatureSet, SpaceInfo,
+    Suggestion, Thresholds, UsageCollector, UsageReport, WalkScanner,
 };
 use purify_ntfs::MftScanner;
 use tracing::info;
@@ -77,6 +78,15 @@ enum Command {
 
     /// Permanently purge quarantined items (expired ones, or a specific id).
     Purge(PurgeArgs),
+
+    /// Organize loose files into typed folders (preview by default, undoable).
+    ///
+    /// DRY-RUN BY DEFAULT: shows the planned moves. `--apply` performs them and
+    /// records an undo log; `--undo` reverses the last applied run.
+    Organize(OrganizeArgs),
+
+    /// Report disk-space pressure for a drive and recommend action.
+    Guard(GuardArgs),
 }
 
 #[derive(Debug, clap::Args)]
@@ -154,6 +164,44 @@ struct PurgeArgs {
     yes: bool,
 }
 
+#[derive(Debug, clap::Args)]
+struct OrganizeArgs {
+    /// Path to organize (e.g. a Downloads folder).
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Destination base for organized folders (default: <PATH>/Organized).
+    #[arg(long, value_name = "DIR")]
+    dest: Option<PathBuf>,
+
+    /// Actually perform the moves. Without this flag it is a dry run.
+    #[arg(long)]
+    apply: bool,
+
+    /// Reverse the most recent applied organize run.
+    #[arg(long)]
+    undo: bool,
+}
+
+#[derive(Debug, clap::Args)]
+struct GuardArgs {
+    /// Path whose volume to inspect (e.g. `C:\\`).
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Warn at this used-percentage (0-100).
+    #[arg(long)]
+    warn_pct: Option<f64>,
+
+    /// Flag critical at this used-percentage (0-100).
+    #[arg(long)]
+    critical_pct: Option<f64>,
+
+    /// Emit the report as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     init_tracing(cli.verbose);
@@ -165,6 +213,8 @@ fn main() -> anyhow::Result<()> {
         Command::List => run_list(),
         Command::Restore(args) => run_restore(args),
         Command::Purge(args) => run_purge(args),
+        Command::Organize(args) => run_organize(args),
+        Command::Guard(args) => run_guard(args),
     }
 }
 
@@ -509,6 +559,124 @@ fn run_purge(args: PurgeArgs) -> anyhow::Result<()> {
     }
     let purged = store.purge_expired(args.older_than, now)?;
     println!("Purged {} expired item(s) permanently.", purged.len());
+    Ok(())
+}
+
+/// Path to the organize undo-log (records the most recent applied run).
+fn organize_log_path() -> PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(std::env::temp_dir)
+        .join("purify")
+        .join("organize-log.json")
+}
+
+fn run_organize(args: OrganizeArgs) -> anyhow::Result<()> {
+    if args.undo {
+        let log_path = organize_log_path();
+        let data = std::fs::read_to_string(&log_path)
+            .with_context(|| format!("no organize log to undo at {}", log_path.display()))?;
+        let log: OrganizeLog = serde_json::from_str(&data).context("parsing organize log")?;
+        Organizer::undo(&log).context("undoing organize run")?;
+        let _ = std::fs::remove_file(&log_path);
+        println!("Reverted {} moved file(s).", log.moves.len());
+        return Ok(());
+    }
+
+    let root = std::path::absolute(&args.path).unwrap_or(args.path.clone());
+    if !root.exists() {
+        anyhow::bail!("organize target does not exist: {}", root.display());
+    }
+    let dest = args.dest.unwrap_or_else(|| root.join("Organized"));
+
+    let mut entries: Vec<FileEntry> = Vec::new();
+    WalkScanner::new()
+        .scan(&root, &mut |e| entries.push(e))
+        .with_context(|| format!("scanning {}", root.display()))?;
+
+    let organizer = Organizer::with_defaults();
+    let plan = organizer.plan(&entries, &dest, now_unix());
+
+    println!();
+    println!(
+        "  purify organize — {} → {}",
+        root.display(),
+        dest.display()
+    );
+    if plan.moves.is_empty() {
+        println!("  Nothing to organize (no matching files old enough).");
+        println!();
+        return Ok(());
+    }
+
+    if !args.apply {
+        println!("  DRY RUN — planned moves:");
+        println!();
+        for m in &plan.moves {
+            println!("    {}  →  {}", m.from.display(), m.to.display());
+        }
+        println!();
+        println!(
+            "  {} file(s) would be organized. Re-run with --apply.",
+            plan.moves.len()
+        );
+        println!();
+        return Ok(());
+    }
+
+    let log = Organizer::apply(&plan).context("applying organize plan")?;
+    let log_path = organize_log_path();
+    if let Some(parent) = log_path.parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
+    std::fs::write(&log_path, serde_json::to_vec_pretty(&log)?)
+        .with_context(|| format!("writing organize log to {}", log_path.display()))?;
+    println!(
+        "  Organized {} file(s). Undo with `purify organize --undo`.",
+        log.moves.len()
+    );
+    println!();
+    Ok(())
+}
+
+fn run_guard(args: GuardArgs) -> anyhow::Result<()> {
+    let root = std::path::absolute(&args.path).unwrap_or(args.path.clone());
+    let total = fs2::total_space(&root)
+        .with_context(|| format!("reading total space for {}", root.display()))?;
+    let available = fs2::available_space(&root)
+        .with_context(|| format!("reading free space for {}", root.display()))?;
+    let space = SpaceInfo { total, available };
+
+    let mut thresholds = Thresholds::default();
+    if let Some(w) = args.warn_pct {
+        thresholds.warn = w / 100.0;
+    }
+    if let Some(c) = args.critical_pct {
+        thresholds.critical = c / 100.0;
+    }
+
+    let report = guardian::evaluate(space, thresholds);
+
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        return Ok(());
+    }
+
+    let level = match report.pressure {
+        purify_core::Pressure::Ok => "OK",
+        purify_core::Pressure::Warning => "WARNING",
+        purify_core::Pressure::Critical => "CRITICAL",
+    };
+    println!();
+    println!("  purify guard — {}", root.display());
+    println!(
+        "  {} used of {}  ({} free) — {:.0}% used  [{level}]",
+        format_bytes(space.used()),
+        format_bytes(space.total),
+        format_bytes(space.available),
+        report.used_fraction * 100.0,
+    );
+    println!("  {}", report.recommendation);
+    println!();
     Ok(())
 }
 

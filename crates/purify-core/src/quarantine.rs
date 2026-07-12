@@ -17,6 +17,7 @@ use rusqlite::Connection;
 use serde::Serialize;
 
 use crate::error::{Error, Result};
+use crate::fsutil::{move_path, remove_path};
 use crate::safety;
 
 /// Lifecycle status of a quarantined item.
@@ -356,52 +357,6 @@ fn row_to_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<QuarantineItem> {
 
 fn map_sql(e: rusqlite::Error) -> Error {
     Error::Quarantine(e.to_string())
-}
-
-/// Move `src` to `dst`, preferring `rename` and falling back to a recursive
-/// copy + delete only when the two live on different volumes.
-fn move_path(src: &Path, dst: &Path) -> Result<()> {
-    match std::fs::rename(src, dst) {
-        Ok(()) => Ok(()),
-        Err(e) if is_cross_device(&e) => {
-            copy_recursive(src, dst)?;
-            remove_path(src)?;
-            Ok(())
-        }
-        Err(e) => Err(Error::io(src, e)),
-    }
-}
-
-/// Whether an error indicates the source and destination are on different
-/// volumes (EXDEV on Unix, ERROR_NOT_SAME_DEVICE on Windows).
-fn is_cross_device(e: &std::io::Error) -> bool {
-    matches!(e.raw_os_error(), Some(18) | Some(17))
-}
-
-fn copy_recursive(src: &Path, dst: &Path) -> Result<()> {
-    let meta = std::fs::symlink_metadata(src).map_err(|e| Error::io(src, e))?;
-    if meta.is_dir() {
-        std::fs::create_dir_all(dst).map_err(|e| Error::io(dst, e))?;
-        for entry in std::fs::read_dir(src).map_err(|e| Error::io(src, e))? {
-            let entry = entry.map_err(|e| Error::io(src, e))?;
-            let child_src = entry.path();
-            let child_dst = dst.join(entry.file_name());
-            copy_recursive(&child_src, &child_dst)?;
-        }
-        Ok(())
-    } else {
-        std::fs::copy(src, dst).map_err(|e| Error::io(src, e))?;
-        Ok(())
-    }
-}
-
-fn remove_path(path: &Path) -> Result<()> {
-    let meta = std::fs::symlink_metadata(path).map_err(|e| Error::io(path, e))?;
-    if meta.is_dir() {
-        std::fs::remove_dir_all(path).map_err(|e| Error::io(path, e))
-    } else {
-        std::fs::remove_file(path).map_err(|e| Error::io(path, e))
-    }
 }
 
 #[cfg(test)]

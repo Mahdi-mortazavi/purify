@@ -235,7 +235,7 @@ impl SignatureSet {
 }
 
 /// Lowercase a string and unify path separators to `\`.
-fn normalize(s: &str) -> String {
+pub(crate) fn normalize(s: &str) -> String {
     s.to_ascii_lowercase().replace('/', "\\")
 }
 
@@ -244,7 +244,7 @@ fn eq_ignore_case(a: &str, b: &str) -> bool {
 }
 
 /// The final path component as a string, using both separators.
-fn last_component(path: &Path) -> String {
+pub(crate) fn last_component(path: &Path) -> String {
     let s = path.to_string_lossy().replace('/', "\\");
     s.trim_end_matches('\\')
         .rsplit('\\')
@@ -255,7 +255,7 @@ fn last_component(path: &Path) -> String {
 
 /// Minimal wildcard match supporting a single `*` (any run of characters).
 /// Case-insensitive. Sufficient for signature patterns like `*.tmp` or `~$*`.
-fn wildcard_match(name: &str, pattern: &str) -> bool {
+pub(crate) fn wildcard_match(name: &str, pattern: &str) -> bool {
     let name = name.to_ascii_lowercase();
     let pattern = pattern.to_ascii_lowercase();
     match pattern.split_once('*') {
