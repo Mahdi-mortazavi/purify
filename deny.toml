@@ -5,6 +5,12 @@
 [advisories]
 version = 2
 yanked = "deny"
+# Security *vulnerabilities* always fail (the default). But "unmaintained"
+# notices are only actioned for crates we directly depend on — deep transitive
+# deps inside Tauri's Linux webview stack (gtk-rs GTK3 bindings, rust-unic) are
+# unmaintained upstream with no available upgrade and are not even used on our
+# primary Windows target, so flagging them would be noise we cannot fix.
+unmaintained = "workspace"
 
 [licenses]
 version = 2

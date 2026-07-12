@@ -4,6 +4,7 @@ members = [
     "crates/purify-core",
     "crates/purify-ntfs",
     "crates/purify-cli",
+    "crates/purify-desktop",
 ]
 
 [workspace.package]

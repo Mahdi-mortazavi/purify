@@ -1,0 +1,32 @@
+[package]
+name = "purify-desktop"
+description = "Tauri 2 desktop UI for purify — treemap, one-click safe cleanup, and quarantine management."
+# Application crate — never published to crates.io.
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[[bin]]
+name = "purify-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+purify-core.workspace = true
+purify-ntfs.workspace = true
+tauri = { version = "2", features = [] }
+serde.workspace = true
+dirs.workspace = true
+fs2.workspace = true
+
+# The desktop crate intentionally does not inherit the workspace lint table:
+# Tauri's code-generating macros are not written to our restriction lints, and
+# forcing them would add noise without improving our own code. We still forbid
+# unsafe in our own app code via an inner attribute in main.rs.

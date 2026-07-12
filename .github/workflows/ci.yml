@@ -15,7 +15,9 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
-  # Fast-failing checks that don't need a build matrix.
+  # Fast lint/test for the core, ntfs, and CLI crates. The desktop crate is
+  # excluded here (it needs the platform webview SDK) and is covered by the
+  # dedicated `desktop` job below.
   lint:
     name: fmt + clippy
     runs-on: ubuntu-latest
@@ -28,10 +30,8 @@ jobs:
       - name: rustfmt
         run: cargo fmt --all --check
       - name: clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --exclude purify-desktop --all-targets -- -D warnings
 
-  # Build + test on both target platforms. Windows is the primary target;
-  # Linux keeps the portable code paths honest and CI fast.
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -44,12 +44,37 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: build
-        run: cargo build --workspace --all-targets
+        run: cargo build --workspace --exclude purify-desktop --all-targets
       - name: test
-        run: cargo test --workspace
+        run: cargo test --workspace --exclude purify-desktop
 
-  # License + advisory gate. Enforces the "permissive licenses only, no
-  # surprise dependencies" product promise.
+  # Build the Tauri desktop app on both target platforms. On Linux it needs the
+  # webkit2gtk SDK; on Windows the WebView2 SDK ships with the runner.
+  desktop:
+    name: desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: install linux webview deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+            librsvg2-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
+      - name: clippy (desktop)
+        run: cargo clippy -p purify-desktop -- -D warnings
+      - name: build (desktop)
+        run: cargo build -p purify-desktop
+
+  # License + advisory gate over the whole dependency graph.
   deny:
     name: cargo-deny
     runs-on: ubuntu-latest
