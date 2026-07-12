@@ -116,16 +116,25 @@ drives with tens of millions of files.
 
 Each phase is independently usable and tested.
 
-- **Phase 0 — Skeleton** *(current)*: workspace, safety lints, CI, docs.
-- **Phase 1 — Scanner**: MFT read + portable fallback, disk-usage tree, CLI
+- **Phase 0 — Skeleton** ✅: workspace, safety lints, CI, docs.
+- **Phase 1 — Scanner** ✅: MFT read + portable fallback, disk-usage tree, CLI
   top-N.
-- **Phase 2 — Knowledge & analysis**: rule engine + ≥ 20 signature categories,
+- **Phase 2 — Knowledge & analysis** ✅: rule engine + 30+ signature categories,
   cleanup suggestions with confidence levels.
-- **Phase 3 — Quarantine & safe cleanup**: quarantine + undo + dry-run +
+- **Phase 3 — Quarantine & safe cleanup** ✅: quarantine + undo + dry-run +
   scheduled purge.
-- **Phase 4 — Desktop UI (Tauri)**: treemap, suggestion list, one-click safe
+- **Phase 4 — Desktop UI (Tauri)** ✅: treemap, suggestion list, one-click safe
   cleanup, quarantine/undo screen.
-- **Phase 5 — Organizer + Guardian**: organization rules, background monitor,
-  Windows notifications.
-- **Phase 6 — Open-source polish**: contribution docs, installer (MSIX/winget),
-  signed binaries, public benchmarks vs WinDirStat/Czkawka.
+- **Phase 5 — Organizer + Guardian** ✅: organization rules, disk-space monitor.
+- **Phase 6 — Release & polish** ✅: GitHub Actions Windows x64 release
+  workflow, installers, benchmarks methodology, contribution docs.
+
+### Component map (as built)
+
+`purify-core` modules: `scan` (portable walker) · `usage` (disk tree +
+directory-size index) · `rules` (signatures + matching) · `suggest` (analyzer) ·
+`quarantine` (SQLite-backed, reversible) · `organize` (rule-driven moves + undo)
+· `guardian` (disk pressure) · `safety` (protected paths) · `fsutil` (shared
+move/copy). `purify-ntfs`: `mft` (NTFS traversal) + `aligned` (sector-aligned
+volume reads). `purify-cli`: `scan`/`analyze`/`clean`/`list`/`restore`/`purge`/
+`organize`/`guard`. `purify-desktop`: Tauri 2 app.

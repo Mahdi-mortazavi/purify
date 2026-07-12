@@ -1,0 +1,81 @@
+name: Release
+
+# Cut a release by pushing a tag like `v0.1.0`, or run manually.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows-x64:
+    name: Build Windows x64 artifacts
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+
+      # The CLI is the guaranteed core deliverable: a single, dependency-free
+      # `purify.exe` for 64-bit Windows.
+      - name: Build CLI (purify.exe)
+        run: cargo build --release -p purify-cli --target x86_64-pc-windows-msvc
+
+      # The desktop app: a standalone GUI executable.
+      - name: Build desktop app (purify-desktop.exe)
+        run: cargo build --release -p purify-desktop --target x86_64-pc-windows-msvc
+
+      # Best-effort native installers (MSI + NSIS). A bundler hiccup must not
+      # block the release, so this step is allowed to fail.
+      - name: Build installers (best effort)
+        id: bundle
+        continue-on-error: true
+        working-directory: crates/purify-desktop
+        run: |
+          cargo install tauri-cli --version "^2.0" --locked
+          cargo tauri build --target x86_64-pc-windows-msvc
+
+      - name: Stage artifacts
+        shell: pwsh
+        run: |
+          $out = "dist"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $tdir = "target/x86_64-pc-windows-msvc/release"
+          Copy-Item "$tdir/purify.exe" "$out/purify.exe" -ErrorAction SilentlyContinue
+          Copy-Item "$tdir/purify-desktop.exe" "$out/purify-desktop.exe" -ErrorAction SilentlyContinue
+          # Installers, if the bundler succeeded.
+          Get-ChildItem -Recurse -Path "$tdir/bundle" -Include *.msi,*.exe -ErrorAction SilentlyContinue |
+            ForEach-Object { Copy-Item $_.FullName "$out/" }
+          # Checksums for everything shipped.
+          Get-ChildItem $out -File | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            "$h  $($_.Name)" | Out-File -Append -Encoding ascii "$out/SHA256SUMS.txt"
+          }
+          Get-ChildItem $out
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: purify-windows-x64
+          path: dist/*
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: purify ${{ github.event.inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          files: dist/*
