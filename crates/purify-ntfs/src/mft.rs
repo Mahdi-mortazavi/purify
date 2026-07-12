@@ -32,6 +32,43 @@ fn ntfs_err(e: ntfs::NtfsError) -> Error {
     Error::Ntfs(e.to_string())
 }
 
+/// Lightweight validation that `fs` is a readable NTFS volume: parse the boot
+/// sector, load the upcase table, open the root directory, and count its
+/// immediate user entries — **without** a full recursive traversal.
+///
+/// This is used as a fast smoke test of the raw volume path on Windows (where a
+/// full-volume traversal would be too slow for CI), and is exercised on every
+/// platform against the committed NTFS image.
+pub fn probe_reader<T>(fs: &mut T) -> Result<usize>
+where
+    T: Read + Seek,
+{
+    let mut ntfs = Ntfs::new(fs).map_err(ntfs_err)?;
+    ntfs.read_upcase_table(fs).map_err(ntfs_err)?;
+    let root = ntfs.file(fs, ROOT_RECORD).map_err(ntfs_err)?;
+    if !root.is_directory() {
+        return Err(Error::Ntfs("root record is not a directory".to_string()));
+    }
+    let index = root.directory_index(fs).map_err(ntfs_err)?;
+    let mut iter = index.entries();
+    let mut count = 0usize;
+    while let Some(entry) = iter.next(fs) {
+        let entry = entry.map_err(ntfs_err)?;
+        let key: NtfsFileName = match entry.key() {
+            Some(Ok(k)) => k,
+            _ => continue,
+        };
+        if key.namespace() == NtfsFileNamespace::Dos {
+            continue;
+        }
+        if entry.file_reference().file_record_number() < FIRST_USER_RECORD {
+            continue;
+        }
+        count += 1;
+    }
+    Ok(count)
+}
+
 /// Traverse the NTFS filesystem readable from `fs`, invoking `sink` for every
 /// file and directory discovered.
 ///

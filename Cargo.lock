@@ -2682,7 +2682,7 @@ dependencies = [
 
 [[package]]
 name = "purify-cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -2697,7 +2697,7 @@ dependencies = [
 
 [[package]]
 name = "purify-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "blake3",
  "chrono",
@@ -2716,7 +2716,7 @@ dependencies = [
 
 [[package]]
 name = "purify-desktop"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "dirs 5.0.1",
  "fs2",
@@ -2729,7 +2729,7 @@ dependencies = [
 
 [[package]]
 name = "purify-ntfs"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "flate2",
  "ntfs",
