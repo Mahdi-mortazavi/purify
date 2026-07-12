@@ -180,7 +180,7 @@ impl QuarantineStore {
         let item = QuarantineItem {
             id,
             original_path: req.original_path.clone(),
-            quarantine_path: dest,
+            quarantine_path: dest.clone(),
             size: req.size,
             is_dir: req.is_dir,
             reason: req.reason.clone(),
@@ -189,7 +189,23 @@ impl QuarantineStore {
             quarantined_at: now_unix,
             status: ItemStatus::Quarantined,
         };
-        self.insert(&item)?;
+
+        // The move already happened; if we cannot record it, the file would be
+        // stranded in the blob area with no way to list or restore it. Roll the
+        // move back so the operation is all-or-nothing from the user's view.
+        if let Err(insert_err) = self.insert(&item) {
+            if let Err(rollback_err) = move_path(&dest, &req.original_path) {
+                return Err(Error::Quarantine(format!(
+                    "failed to record quarantine ({insert_err}) and could not \
+                     restore the original file to {} ({rollback_err}); the file \
+                     is at {}",
+                    req.original_path.display(),
+                    dest.display()
+                )));
+            }
+            let _ = std::fs::remove_dir(dest.parent().unwrap_or(&dest));
+            return Err(insert_err);
+        }
         Ok(item)
     }
 
@@ -314,13 +330,25 @@ impl QuarantineStore {
         Ok(())
     }
 
-    /// Deterministic-enough unique id from the path, time, and a counter.
+    /// A unique id derived from the path, time, a per-process counter, and
+    /// sub-second wall-clock entropy.
+    ///
+    /// The counter alone resets to 0 each process start, so quarantining the
+    /// same path in the same wall-clock second across two runs could collide.
+    /// Mixing in nanosecond entropy makes a collision astronomically unlikely;
+    /// the caller additionally rolls back and surfaces an error if the id ever
+    /// does collide on insert.
     fn new_id(&self, original: &Path, now_unix: i64) -> String {
         let n = self.counter.fetch_add(1, Ordering::Relaxed);
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.subsec_nanos())
+            .unwrap_or(0);
         let mut hasher = blake3::Hasher::new();
         hasher.update(original.to_string_lossy().as_bytes());
         hasher.update(&now_unix.to_le_bytes());
         hasher.update(&n.to_le_bytes());
+        hasher.update(&nanos.to_le_bytes());
         let hex = hasher.finalize().to_hex();
         hex.as_str()[..16].to_string()
     }

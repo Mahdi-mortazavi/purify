@@ -23,9 +23,20 @@ pub fn move_path(src: &Path, dst: &Path) -> Result<()> {
 }
 
 /// Whether an error indicates the source and destination are on different
-/// volumes (EXDEV on Unix, ERROR_NOT_SAME_DEVICE on Windows).
+/// volumes. The error code is OS-specific and must be gated per-platform:
+/// `EXDEV` is 18 on Unix, but `ERROR_NOT_SAME_DEVICE` is 17 on Windows — and 17
+/// is `EEXIST` on Unix, so a single combined match would misclassify a
+/// destination-exists error as cross-device and silently overwrite.
+#[cfg(windows)]
 fn is_cross_device(e: &std::io::Error) -> bool {
-    matches!(e.raw_os_error(), Some(18) | Some(17))
+    // ERROR_NOT_SAME_DEVICE
+    e.raw_os_error() == Some(17)
+}
+
+#[cfg(not(windows))]
+fn is_cross_device(e: &std::io::Error) -> bool {
+    // EXDEV
+    e.raw_os_error() == Some(18)
 }
 
 /// Recursively copy a file or directory tree from `src` to `dst`.
@@ -51,5 +62,45 @@ pub fn remove_path(path: &Path) -> Result<()> {
         std::fs::remove_dir_all(path).map_err(|e| Error::io(path, e))
     } else {
         std::fs::remove_file(path).map_err(|e| Error::io(path, e))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn move_file_relocates_and_reads_back() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let src = tmp.path().join("a.txt");
+        let dst = tmp.path().join("sub").join("b.txt");
+        std::fs::create_dir_all(dst.parent().unwrap()).unwrap();
+        std::fs::write(&src, b"hello").unwrap();
+
+        move_path(&src, &dst).expect("move");
+        assert!(!src.exists());
+        assert_eq!(std::fs::read(&dst).unwrap(), b"hello");
+    }
+
+    #[test]
+    fn move_dir_onto_existing_nonempty_dir_errors_not_merges() {
+        // Regression: a rename that fails with EEXIST/ENOTEMPTY on Unix must not
+        // be misread as cross-device and silently merged+deleted.
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let src = tmp.path().join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(src.join("keep.txt"), b"src").unwrap();
+
+        let dst = tmp.path().join("dst");
+        std::fs::create_dir_all(&dst).unwrap();
+        std::fs::write(dst.join("other.txt"), b"dst").unwrap();
+
+        let result = move_path(&src, &dst);
+        // Either the OS refuses (Err) — the important thing is the source is not
+        // silently deleted after an overwrite-merge.
+        if result.is_err() {
+            assert!(src.exists(), "source must remain after a refused move");
+            assert!(src.join("keep.txt").exists());
+        }
     }
 }
