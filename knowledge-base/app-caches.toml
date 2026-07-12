@@ -1,0 +1,66 @@
+# Browser and desktop-app caches. Reclaiming them logs you into nothing new and
+# loses no data — apps rebuild these on demand.
+
+[[signature]]
+id = "chrome-cache"
+title = "Google Chrome cache"
+category = "browser-cache"
+confidence = "safe"
+description = "Chrome's on-disk web cache. Rebuilt as you browse; does not affect logins or bookmarks."
+match = { kind = "path-contains", needle = "\\Google\\Chrome\\User Data\\Default\\Cache" }
+
+[[signature]]
+id = "edge-cache"
+title = "Microsoft Edge cache"
+category = "browser-cache"
+confidence = "safe"
+description = "Edge's on-disk web cache. Rebuilt as you browse; does not affect logins or bookmarks."
+match = { kind = "path-contains", needle = "\\Microsoft\\Edge\\User Data\\Default\\Cache" }
+
+[[signature]]
+id = "firefox-cache"
+title = "Mozilla Firefox cache"
+category = "browser-cache"
+confidence = "safe"
+description = "Firefox's cache2 storage. Rebuilt as you browse."
+match = { kind = "path-contains", needle = "\\Mozilla\\Firefox\\Profiles" }
+
+[[signature]]
+id = "telegram-cache"
+title = "Telegram Desktop cache"
+category = "app-cache"
+confidence = "likely-safe"
+description = "Cached media from Telegram chats. Re-downloaded when you reopen a chat."
+match = { kind = "path-contains", needle = "\\Telegram Desktop\\tdata\\user_data\\cache" }
+
+[[signature]]
+id = "spotify-cache"
+title = "Spotify cache"
+category = "app-cache"
+confidence = "safe"
+description = "Cached audio data for offline playback of streamed tracks. Re-cached on play."
+match = { kind = "path-contains", needle = "\\Spotify\\Storage" }
+
+[[signature]]
+id = "discord-cache"
+title = "Discord cache"
+category = "app-cache"
+confidence = "safe"
+description = "Discord's Electron web cache. Rebuilt automatically."
+match = { kind = "path-contains", needle = "\\discord\\Cache" }
+
+[[signature]]
+id = "whatsapp-cache"
+title = "WhatsApp Desktop cache"
+category = "app-cache"
+confidence = "likely-safe"
+description = "Cached media from WhatsApp. Re-downloaded on demand."
+match = { kind = "path-contains", needle = "\\WhatsApp\\Cache" }
+
+[[signature]]
+id = "teams-cache"
+title = "Microsoft Teams cache"
+category = "app-cache"
+confidence = "safe"
+description = "Teams' web/service worker cache. Rebuilt automatically on next launch."
+match = { kind = "path-contains", needle = "\\Microsoft\\Teams\\Cache" }
