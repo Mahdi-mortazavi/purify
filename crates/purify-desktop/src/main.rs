@@ -43,28 +43,39 @@ fn collect_entries(root: &Path) -> Result<Vec<FileEntry>, String> {
 }
 
 /// Scan a path and return its largest consumers (for the treemap).
+///
+/// `async` + `spawn_blocking` keeps the potentially long, CPU-bound scan off the
+/// webview's main thread so the UI stays responsive.
 #[tauri::command]
-fn scan_path(path: String, top: usize) -> Result<UsageReport, String> {
-    let root = PathBuf::from(&path);
-    if !root.exists() {
-        return Err(format!("path does not exist: {path}"));
-    }
-    let mut collector = UsageCollector::new(&root);
-    WalkScanner::new()
-        .scan(&root, &mut |e| collector.record(&e))
-        .map_err(|e| e.to_string())?;
-    Ok(collector.into_report(top.max(1)))
+async fn scan_path(path: String, top: usize) -> Result<UsageReport, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<UsageReport, String> {
+        let root = PathBuf::from(&path);
+        if !root.exists() {
+            return Err(format!("path does not exist: {path}"));
+        }
+        let mut collector = UsageCollector::new(&root);
+        WalkScanner::new()
+            .scan(&root, &mut |e| collector.record(&e))
+            .map_err(|e| e.to_string())?;
+        Ok(collector.into_report(top.max(1)))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Analyze a path and return cleanup suggestions with confidence levels.
 #[tauri::command]
-fn analyze_path(path: String) -> Result<AnalysisReport, String> {
-    let root = PathBuf::from(&path);
-    if !root.exists() {
-        return Err(format!("path does not exist: {path}"));
-    }
-    let entries = collect_entries(&root)?;
-    Ok(Analyzer::new(SignatureSet::builtin()).analyze(&entries, now_unix()))
+async fn analyze_path(path: String) -> Result<AnalysisReport, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<AnalysisReport, String> {
+        let root = PathBuf::from(&path);
+        if !root.exists() {
+            return Err(format!("path does not exist: {path}"));
+        }
+        let entries = collect_entries(&root)?;
+        Ok(Analyzer::new(SignatureSet::builtin()).analyze(&entries, now_unix()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Result of a clean operation.
@@ -79,43 +90,47 @@ struct CleanOutcome {
 ///
 /// `min_confidence` is one of "safe", "likely-safe", "review-needed".
 #[tauri::command]
-fn clean_path(path: String, min_confidence: String) -> Result<CleanOutcome, String> {
-    let root = PathBuf::from(&path);
-    if !root.exists() {
-        return Err(format!("path does not exist: {path}"));
-    }
-    let max_rank = label_rank(&min_confidence);
-    let entries = collect_entries(&root)?;
-    let report = Analyzer::new(SignatureSet::builtin()).analyze(&entries, now_unix());
+async fn clean_path(path: String, min_confidence: String) -> Result<CleanOutcome, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<CleanOutcome, String> {
+        let root = PathBuf::from(&path);
+        if !root.exists() {
+            return Err(format!("path does not exist: {path}"));
+        }
+        let max_rank = label_rank(&min_confidence);
+        let entries = collect_entries(&root)?;
+        let report = Analyzer::new(SignatureSet::builtin()).analyze(&entries, now_unix());
 
-    let store = open_store()?;
-    let now = now_unix();
-    let mut outcome = CleanOutcome {
-        moved: 0,
-        reclaimed: 0,
-        skipped: 0,
-    };
-    for s in &report.suggestions {
-        if label_rank(&s.confidence) > max_rank {
-            continue;
-        }
-        let req = QuarantineRequest {
-            original_path: s.path.clone(),
-            size: s.size,
-            is_dir: s.is_dir,
-            reason: s.reason.clone(),
-            signature_id: Some(s.signature_id.clone()),
-            confidence: Some(s.confidence.clone()),
+        let store = open_store()?;
+        let now = now_unix();
+        let mut outcome = CleanOutcome {
+            moved: 0,
+            reclaimed: 0,
+            skipped: 0,
         };
-        match store.quarantine(&req, now) {
-            Ok(_) => {
-                outcome.moved += 1;
-                outcome.reclaimed += s.size;
+        for s in &report.suggestions {
+            if label_rank(&s.confidence) > max_rank {
+                continue;
             }
-            Err(_) => outcome.skipped += 1,
+            let req = QuarantineRequest {
+                original_path: s.path.clone(),
+                size: s.size,
+                is_dir: s.is_dir,
+                reason: s.reason.clone(),
+                signature_id: Some(s.signature_id.clone()),
+                confidence: Some(s.confidence.clone()),
+            };
+            match store.quarantine(&req, now) {
+                Ok(_) => {
+                    outcome.moved += 1;
+                    outcome.reclaimed += s.size;
+                }
+                Err(_) => outcome.skipped += 1,
+            }
         }
-    }
-    Ok(outcome)
+        Ok(outcome)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// List items currently held in quarantine.

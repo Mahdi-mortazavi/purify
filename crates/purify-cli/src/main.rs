@@ -259,7 +259,10 @@ fn run_scan(args: ScanArgs) -> anyhow::Result<()> {
         anyhow::bail!("scan target does not exist: {}", root.display());
     }
 
-    let (strategy, report) = scan_with_best_strategy(&root, args.top, args.mft)
+    // Clamp to at least 1 so `--top 0` still shows the single largest consumer
+    // rather than an empty list.
+    let top = args.top.max(1);
+    let (strategy, report) = scan_with_best_strategy(&root, top, args.mft)
         .with_context(|| format!("scanning {}", root.display()))?;
 
     if args.json {
@@ -296,8 +299,27 @@ fn scan_with_best_strategy(
 
 fn collect(root: &Path, top: usize, scanner: &dyn Scanner) -> anyhow::Result<UsageReport> {
     let mut collector = UsageCollector::new(root);
-    scanner.scan(root, &mut |entry| collector.record(&entry))?;
+    // The MFT scanner traverses the whole volume regardless of the requested
+    // subdirectory, so restrict recorded entries to those actually under `root`.
+    // The check is case-insensitive and separator-normalized because the MFT
+    // reports paths in their on-disk case, which may differ from the user's
+    // typed path (Windows paths are case-insensitive). For the portable walker
+    // every entry is already under `root`, so this is a no-op there.
+    scanner.scan(root, &mut |entry| {
+        if is_under_root(root, &entry.path) {
+            collector.record(&entry);
+        }
+    })?;
     Ok(collector.into_report(top))
+}
+
+/// Case-insensitive, separator-normalized "is `path` at or under `root`?" check.
+fn is_under_root(root: &Path, path: &Path) -> bool {
+    let norm = |p: &Path| p.to_string_lossy().to_ascii_lowercase().replace('/', "\\");
+    let root_n = norm(root);
+    let root_n = root_n.trim_end_matches('\\');
+    let path_n = norm(path);
+    path_n == root_n || path_n.starts_with(&format!("{root_n}\\"))
 }
 
 fn run_analyze(args: AnalyzeArgs) -> anyhow::Result<()> {
@@ -725,4 +747,38 @@ fn print_report(report: &UsageReport, strategy: &str) {
         );
     }
     println!();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn under_root_is_case_insensitive_and_boundary_aware() {
+        // MFT reports canonical case; the user may type another case.
+        assert!(is_under_root(
+            Path::new(r"C:\users\me"),
+            Path::new(r"C:\Users\Me\Downloads\x.txt")
+        ));
+        // A drive root contains everything on that drive.
+        assert!(is_under_root(Path::new(r"C:\"), Path::new(r"C:\Windows\x")));
+        // Sibling with a shared prefix is NOT under root (component boundary).
+        assert!(!is_under_root(
+            Path::new(r"C:\Users\me"),
+            Path::new(r"C:\Users\metadata\x")
+        ));
+        // Different subtree excluded (the whole-volume-MFT case).
+        assert!(!is_under_root(
+            Path::new(r"C:\Users\me"),
+            Path::new(r"C:\Windows\System32\x")
+        ));
+    }
+
+    #[test]
+    fn label_rank_matches_confidence_labels() {
+        assert_eq!(label_rank("safe"), 0);
+        assert_eq!(label_rank("likely-safe"), 1);
+        assert_eq!(label_rank("review-needed"), 2);
+        assert_eq!(label_rank("anything-else"), 2);
+    }
 }

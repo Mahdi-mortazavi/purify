@@ -10,20 +10,37 @@
 
 use std::path::Path;
 
-/// Absolute Windows path prefixes that must never be quarantined or moved.
+/// Drive-relative Windows path prefixes that must never be quarantined or moved.
 ///
 /// These are the roots of the operating system, installed programs, and boot
-/// artifacts. Touching anything under them risks an unbootable machine.
+/// artifacts. Touching anything under them risks an unbootable machine. They are
+/// matched against the path with its `<letter>:` drive stripped, so they protect
+/// these locations on **any** drive (Windows can be installed on D:, programs
+/// relocated, etc.) — not just C:.
 const PROTECTED_PREFIXES: &[&str] = &[
-    r"c:\windows",
-    r"c:\program files",
-    r"c:\program files (x86)",
-    r"c:\programdata\microsoft\windows",
-    r"c:\$recycle.bin\s-1-5-18", // system SID recycle bin
-    r"c:\system volume information",
-    r"c:\perflogs",
-    r"c:\boot",
-    r"c:\recovery",
+    r"\windows",
+    r"\program files",
+    r"\program files (x86)",
+    r"\programdata\microsoft\windows",
+    r"\$recycle.bin\s-1-5-18", // system SID recycle bin
+    r"\system volume information",
+    r"\perflogs",
+    r"\boot",
+    r"\recovery",
+];
+
+/// Drive-relative subtrees that are **safe to reclaim even though they sit
+/// under an otherwise-protected prefix**. These are OS-managed caches that
+/// Windows regenerates and that Windows' own Disk Cleanup removes. Matching one
+/// of these overrides the broader protected-prefix rule (but never the
+/// pseudo-file-name rule below).
+const SAFE_SUBTREES: &[&str] = &[
+    r"\windows\temp",
+    r"\windows\prefetch",
+    r"\windows\logs",
+    r"\windows\softwaredistribution\download",
+    r"\windows\softwaredistribution\deliveryoptimization",
+    r"\programdata\microsoft\windows\wer",
 ];
 
 /// File names that are protected regardless of location — the big Windows
@@ -71,9 +88,40 @@ pub fn is_protected(path: &Path) -> bool {
         return true;
     }
 
+    // Strip a leading `<letter>:` so the drive-relative prefixes match on any
+    // drive (Windows/Program Files can live on D:, E:, ...). If there is no
+    // drive letter, match against the whole normalized path.
+    let drive_relative = strip_drive(&normalized);
+
+    // Well-known OS caches under a protected prefix are explicitly reclaimable.
+    if SAFE_SUBTREES
+        .iter()
+        .any(|safe| under_prefix(drive_relative, safe))
+    {
+        return false;
+    }
+
     PROTECTED_PREFIXES
         .iter()
-        .any(|prefix| normalized == *prefix || normalized.starts_with(&format!("{prefix}\\")))
+        .any(|prefix| under_prefix(drive_relative, prefix))
+}
+
+/// Whether `path` equals `prefix` or is nested beneath it, comparing whole
+/// components (so `\windows` does not match `\windows.old`).
+fn under_prefix(path: &str, prefix: &str) -> bool {
+    path == prefix || path.starts_with(&format!("{prefix}\\"))
+}
+
+/// Remove a leading `<letter>:` from a normalized path, returning the remainder
+/// (which keeps its leading `\`). Paths without a drive letter are returned
+/// unchanged.
+fn strip_drive(normalized: &str) -> &str {
+    let bytes = normalized.as_bytes();
+    if bytes.len() >= 2 && bytes[1] == b':' && bytes[0].is_ascii_alphabetic() {
+        &normalized[2..]
+    } else {
+        normalized
+    }
 }
 
 /// Whether the normalized path is a drive root such as `c:\` or `c:`.
@@ -102,6 +150,16 @@ mod tests {
     }
 
     #[test]
+    fn system_dirs_are_protected_on_any_drive() {
+        // Windows can live on D:, programs can be relocated to E:, etc.
+        assert!(is_protected(&PathBuf::from(
+            r"D:\Windows\System32\kernel32.dll"
+        )));
+        assert!(is_protected(&PathBuf::from(r"E:\Program Files\App\x.dll")));
+        assert!(is_protected(&PathBuf::from(r"F:\Boot\bootmgr.efi")));
+    }
+
+    #[test]
     fn case_and_slash_insensitive() {
         assert!(is_protected(&PathBuf::from(r"C:/WINDOWS/system32")));
     }
@@ -116,6 +174,32 @@ mod tests {
     fn drive_root_is_protected() {
         assert!(is_protected(&PathBuf::from(r"C:\")));
         assert!(is_protected(&PathBuf::from("C:")));
+    }
+
+    #[test]
+    fn safe_os_caches_under_windows_are_reclaimable() {
+        // These sit under \Windows (protected) but are explicitly safe.
+        assert!(!is_protected(&PathBuf::from(r"C:\Windows\Temp\x.tmp")));
+        assert!(!is_protected(&PathBuf::from(r"C:\Windows\Prefetch\APP.pf")));
+        assert!(!is_protected(&PathBuf::from(
+            r"C:\Windows\SoftwareDistribution\Download\abc\update.cab"
+        )));
+        assert!(!is_protected(&PathBuf::from(
+            r"C:\ProgramData\Microsoft\Windows\WER\ReportQueue\x"
+        )));
+    }
+
+    #[test]
+    fn critical_windows_dirs_stay_protected_despite_carveouts() {
+        assert!(is_protected(&PathBuf::from(
+            r"C:\Windows\System32\kernel32.dll"
+        )));
+        assert!(is_protected(&PathBuf::from(r"C:\Windows\WinSxS\x")));
+        assert!(!is_protected(&PathBuf::from(r"C:\Windows\Temp")));
+        // pagefile stays protected even by name, anywhere.
+        assert!(is_protected(&PathBuf::from(
+            r"C:\Windows\Temp\pagefile.sys"
+        )));
     }
 
     #[test]

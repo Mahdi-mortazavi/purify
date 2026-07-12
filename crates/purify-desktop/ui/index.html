@@ -98,7 +98,7 @@
   <div class="app">
     <header>
       <div class="logo">purify<span>·</span></div>
-      <input id="path" type="text" placeholder="Path to scan (e.g. C:\Users\me)" value="C:\\" />
+      <input id="path" type="text" placeholder="Path to scan (e.g. C:\Users\me)" value="C:\" />
       <button id="scanBtn">Scan</button>
       <button id="analyzeBtn" class="ghost">Analyze</button>
     </header>
@@ -141,6 +141,18 @@
     const invoke = (cmd, args) => window.__TAURI__.core.invoke(cmd, args);
     const $ = (id) => document.getElementById(id);
     let view = "suggest";
+    let lastAnalysis = null; // cache so the Suggestions tab can re-render cheaply
+
+    // Escape text before inserting into innerHTML. File names/paths can contain
+    // `&`, `<`, `>` which would otherwise corrupt rendering or break markup.
+    function esc(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
 
     function fmtBytes(n) {
       const u = ["B","KiB","MiB","GiB","TiB","PiB"]; let i = 0; let v = n;
@@ -163,7 +175,15 @@
         const pill = $("guardPill");
         pill.textContent = `${pct}% used · ${r.pressure}`;
         pill.className = "pill " + r.pressure;
-      } catch (e) { $("guardText").textContent = "Disk: " + e; }
+      } catch (e) {
+        // Reset the meter/pill so a failed refresh doesn't look like healthy
+        // stale data.
+        $("guardText").textContent = "Disk: " + e;
+        $("guardMeter").style.width = "0%";
+        const pill = $("guardPill");
+        pill.textContent = "—";
+        pill.className = "pill ok";
+      }
     }
 
     async function doScan() {
@@ -190,7 +210,7 @@
         el.style.background = c.is_dir ? "var(--accent)" : "var(--panel-2)";
         if (!c.is_dir) el.style.color = "var(--text)";
         const name = c.path.split(/[\\/]/).pop() || c.path;
-        el.innerHTML = `<b>${fmtBytes(c.size)}</b><small>${name}</small>`;
+        el.innerHTML = `<b>${fmtBytes(c.size)}</b><small>${esc(name)}</small>`;
         box.appendChild(el);
       }
     }
@@ -199,6 +219,7 @@
       const btn = $("analyzeBtn"); btn.disabled = true; btn.textContent = "Analyzing…";
       try {
         const rep = await invoke("analyze_path", { path: pathVal() });
+        lastAnalysis = rep;
         view = "suggest"; setTab();
         renderSuggestions(rep);
       } catch (e) { toast("Analyze failed: " + e); }
@@ -222,19 +243,26 @@
             <span class="badge ${s.confidence}">${s.confidence}</span>
             <span class="size">${fmtBytes(s.size)}</span>
           </div>
-          <div class="path">${s.path}</div>
-          <div class="reason">${s.title} — ${s.reason}</div>`;
+          <div class="path">${esc(s.path)}</div>
+          <div class="reason">${esc(s.title)} — ${esc(s.reason)}</div>`;
         list.appendChild(el);
       }
     }
 
     async function doClean(minConfidence) {
       if (!confirm(`Move ${minConfidence} items to reversible quarantine? You can restore them anytime.`)) return;
+      const btns = [$("cleanSafe"), $("cleanLikely")];
+      btns.forEach((b) => (b.disabled = true));
+      $("cleanSafe").textContent = "Cleaning…";
       try {
         const out = await invoke("clean_path", { path: pathVal(), minConfidence });
         toast(`Quarantined ${out.moved} item(s), reclaimed ${fmtBytes(out.reclaimed)}.`);
-        doAnalyze(); refreshGuard();
+        await doAnalyze(); refreshGuard();
       } catch (e) { toast("Clean failed: " + e); }
+      finally {
+        btns.forEach((b) => (b.disabled = false));
+        $("cleanSafe").textContent = "Clean safe items";
+      }
     }
 
     async function renderQuarantine() {
@@ -257,8 +285,8 @@
                 <button class="danger" data-purge="${i.id}">Purge</button>
               </span>
             </div>
-            <div class="path">${i.original_path}</div>
-            <div class="reason">${i.reason}</div>`;
+            <div class="path">${esc(i.original_path)}</div>
+            <div class="reason">${esc(i.reason)}</div>`;
           list.appendChild(el);
         }
       } catch (e) { list.innerHTML = `<div class="empty">${e}</div>`; }
@@ -267,7 +295,18 @@
     function setTab() {
       $("tabSuggest").classList.toggle("active", view === "suggest");
       $("tabQuarantine").classList.toggle("active", view === "quarantine");
-      if (view === "quarantine") renderQuarantine();
+      if (view === "quarantine") {
+        renderQuarantine();
+      } else if (lastAnalysis) {
+        // Restore the suggestions view (list + clean actions + totals) that the
+        // quarantine tab overwrote.
+        renderSuggestions(lastAnalysis);
+      } else {
+        $("cleanActions").style.display = "none";
+        $("reclaimTotal").textContent = "";
+        $("list").innerHTML =
+          '<div class="empty">Press Analyze to get safe cleanup suggestions.</div>';
+      }
     }
 
     document.addEventListener("click", async (e) => {
