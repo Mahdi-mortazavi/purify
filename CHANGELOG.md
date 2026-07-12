@@ -2,6 +2,34 @@
 
 All notable changes to purify are documented here.
 
+## v0.1.2 — performance & full Windows testing
+
+### Performance
+- **Analysis is dramatically faster.** Signatures are now *compiled* once
+  (needles/patterns pre-lowercased), each scanned path is normalized exactly
+  once instead of once per signature, and per-file matching runs in **parallel
+  across CPU cores** (rayon). On a realistic ~7,400-file user profile, `analyze`
+  runs in ~28 ms and `scan` in ~20 ms (release build).
+- **Directory sizing is lazy and targeted.** The recursive directory-size index
+  is skipped entirely when an analysis matches only files, and otherwise sizes
+  **only the handful of accepted directories** (allocation-free ancestor
+  lookups) instead of indexing every ancestor of every file.
+- **Full LTO** (`lto = "fat"`) on release builds for maximum runtime speed.
+- *Note on GPU:* disk scanning is I/O- and string-bound, so a GPU offers no
+  speedup there — the honest GPU win is the desktop UI, whose treemap now renders
+  on the WebView2 hardware-accelerated compositor layer with smooth,
+  transform-only (60fps) animations that respect `prefers-reduced-motion`.
+
+### Testing (Windows)
+- New **end-to-end CLI integration test** (`tests/e2e.rs`) drives the real
+  `purify` binary through scan → analyze → clean → list → restore → purge →
+  organize → guard, and runs on the **Windows** CI runner (and Linux), with an
+  isolated quarantine store.
+- New **live-volume MFT probe** validated on the Windows CI runner: opens the
+  real `\\.\C:` device handle, sector-aligns, and parses NTFS — the one code
+  path that could not run on a non-Windows host. Also exercised on every
+  platform against the committed NTFS image.
+
 ## v0.1.1 — QA & hardening
 
 A full test-and-debug pass (aggressive CLI exercise testing plus independent

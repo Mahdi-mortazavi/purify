@@ -61,6 +61,38 @@ impl MftScanner {
     pub fn is_available() -> bool {
         cfg!(windows)
     }
+
+    /// Fast validation that the volume hosting `root` can be opened and parsed
+    /// as NTFS, returning the number of user entries in its root directory.
+    ///
+    /// This exercises the exact raw-volume path used by [`Scanner::scan`]
+    /// (open `\\.\X:`, sector-align, parse NTFS) without a slow full traversal —
+    /// suitable for a smoke test. Requires administrator rights on Windows;
+    /// returns [`purify_core::Error::Unsupported`] on other platforms.
+    #[cfg(windows)]
+    pub fn probe(root: &Path) -> Result<usize> {
+        use std::fs::File;
+        use std::io::BufReader;
+
+        let volume = windows_volume::device_path_for(root).ok_or_else(|| {
+            purify_core::Error::Unsupported(format!(
+                "cannot determine NTFS volume for path: {}",
+                root.display()
+            ))
+        })?;
+        let file = File::open(&volume).map_err(|e| purify_core::Error::io(&volume, e))?;
+        let aligned = aligned::AlignedReader::new(file, VOLUME_ALIGNMENT);
+        let mut reader = BufReader::new(aligned);
+        mft::probe_reader(&mut reader)
+    }
+
+    /// Non-Windows stub: direct volume access is unavailable.
+    #[cfg(not(windows))]
+    pub fn probe(_root: &Path) -> Result<usize> {
+        Err(purify_core::Error::Unsupported(
+            "direct MFT access requires Windows".to_string(),
+        ))
+    }
 }
 
 impl Scanner for MftScanner {
@@ -162,5 +194,23 @@ mod tests {
         let result = scanner.scan(std::path::Path::new("."), &mut |_| count += 1);
         assert!(matches!(result, Err(purify_core::Error::Unsupported(_))));
         assert_eq!(count, 0);
+    }
+
+    // Real-hardware smoke test of the raw `\\.\C:` device path — the one code
+    // path that cannot run on non-Windows hosts. GitHub's Windows runners have
+    // administrator rights, so the volume opens; if a future runner lacks them,
+    // we accept a permission error rather than failing spuriously, but never a
+    // panic or a logic error.
+    #[cfg(windows)]
+    #[test]
+    fn probe_opens_real_windows_volume() {
+        let root = std::env::current_dir().expect("cwd");
+        match MftScanner::probe(&root) {
+            Ok(n) => assert!(n > 0, "root directory should contain entries"),
+            Err(purify_core::Error::Io { .. }) => {
+                eprintln!("skipping: volume open denied (no admin?)");
+            }
+            Err(e) => panic!("unexpected MFT probe error: {e}"),
+        }
     }
 }

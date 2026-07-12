@@ -79,3 +79,11 @@ fn mft_scan_total_bytes_match_known_layout() {
     let total: u64 = entries.iter().filter(|e| !e.is_dir).map(|e| e.size).sum();
     assert_eq!(total, 3500, "1000 + 2000 + 500");
 }
+
+#[test]
+fn mft_probe_counts_root_entries() {
+    // The root of the fixture holds two user entries: `alpha.txt` and `sub`.
+    let mut reader = AlignedReader::new(Cursor::new(load_image()), 512);
+    let count = purify_ntfs::mft::probe_reader(&mut reader).expect("probe");
+    assert_eq!(count, 2, "alpha.txt + sub directory");
+}

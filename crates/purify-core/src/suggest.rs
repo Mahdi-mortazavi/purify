@@ -1,12 +1,20 @@
 //! Turns a scan plus a [`SignatureSet`] into concrete, de-duplicated cleanup
 //! [`Suggestion`]s — the "decide" half of the product thesis.
+//!
+//! # Performance
+//! Signatures are *compiled* once (needles and patterns pre-lowercased) when the
+//! [`Analyzer`] is built, each scanned path is normalized exactly once, and the
+//! per-entry matching runs in parallel across CPU cores via `rayon`. This turns
+//! the analysis hot loop from O(files × signatures) string allocations into a
+//! single normalization per file plus allocation-free comparisons.
 
 use std::path::PathBuf;
 
+use rayon::prelude::*;
 use serde::Serialize;
 
 use crate::model::FileEntry;
-use crate::rules::{Confidence, SignatureSet};
+use crate::rules::{normalize, wildcard_match_lower, Confidence, MatchRule, SignatureSet};
 use crate::usage::DirSizeIndex;
 
 /// A concrete recommendation to reclaim a specific path.
@@ -59,17 +67,118 @@ fn confidence_rank(label: &str) -> u8 {
     }
 }
 
+/// A signature with its match inputs pre-lowercased for allocation-free matching.
+#[derive(Debug)]
+struct CompiledSig {
+    id: String,
+    title: String,
+    category: String,
+    confidence: Confidence,
+    description: String,
+    rule: CompiledRule,
+}
+
+#[derive(Debug)]
+enum CompiledRule {
+    DirName {
+        name: String,
+    },
+    PathContains {
+        needle: String,
+    },
+    Glob {
+        patterns: Vec<String>,
+        within: Option<String>,
+        min_age_days: Option<u32>,
+    },
+}
+
+impl CompiledRule {
+    fn compile(rule: &MatchRule) -> Self {
+        match rule {
+            MatchRule::DirName { name } => CompiledRule::DirName {
+                name: name.to_ascii_lowercase(),
+            },
+            MatchRule::PathContains { needle } => CompiledRule::PathContains {
+                needle: normalize(needle),
+            },
+            MatchRule::Glob {
+                patterns,
+                within,
+                min_age_days,
+            } => CompiledRule::Glob {
+                patterns: patterns.iter().map(|p| p.to_ascii_lowercase()).collect(),
+                within: within.as_deref().map(normalize),
+                min_age_days: *min_age_days,
+            },
+        }
+    }
+
+    /// Match against a pre-normalized (lowercased, backslash) path and its
+    /// lowercased final component. No allocations.
+    fn matches(
+        &self,
+        norm_path: &str,
+        name_lower: &str,
+        is_dir: bool,
+        modified: Option<i64>,
+        now: i64,
+    ) -> bool {
+        match self {
+            CompiledRule::DirName { name } => is_dir && name_lower == name,
+            CompiledRule::PathContains { needle } => norm_path.contains(needle.as_str()),
+            CompiledRule::Glob {
+                patterns,
+                within,
+                min_age_days,
+            } => {
+                if is_dir {
+                    return false;
+                }
+                if let Some(w) = within {
+                    if !norm_path.contains(w.as_str()) {
+                        return false;
+                    }
+                }
+                if let Some(days) = min_age_days {
+                    let Some(m) = modified else {
+                        return false;
+                    };
+                    if now.saturating_sub(m) < i64::from(*days) * 86_400 {
+                        return false;
+                    }
+                }
+                patterns.iter().any(|p| wildcard_match_lower(name_lower, p))
+            }
+        }
+    }
+}
+
 /// Analyzes scanned entries against signatures to produce suggestions.
 #[derive(Debug)]
 pub struct Analyzer {
-    signatures: SignatureSet,
+    signatures: Vec<CompiledSig>,
 }
 
 impl Analyzer {
-    /// Create an analyzer from a signature set.
+    /// Create an analyzer from a signature set, compiling it for fast matching.
     #[must_use]
     pub fn new(signatures: SignatureSet) -> Self {
-        Self { signatures }
+        let compiled = signatures
+            .signatures
+            .into_iter()
+            .map(|s| CompiledSig {
+                rule: CompiledRule::compile(&s.rule),
+                id: s.id,
+                title: s.title,
+                category: s.category,
+                confidence: s.confidence,
+                description: s.description,
+            })
+            .collect();
+        Self {
+            signatures: compiled,
+        }
     }
 
     /// Analyze a full list of scanned entries.
@@ -79,67 +188,77 @@ impl Analyzer {
     /// not also listed.
     #[must_use]
     pub fn analyze(&self, entries: &[FileEntry], now_unix: i64) -> AnalysisReport {
-        let dir_index = DirSizeIndex::build(entries);
-
-        // First pass: find the first matching signature for each entry.
-        struct Match<'a> {
-            entry: &'a FileEntry,
-            sig: &'a crate::rules::Signature,
-        }
-        let mut matches: Vec<Match> = Vec::new();
-        for entry in entries {
-            // Never suggest a protected path, no matter what a signature says.
-            if crate::safety::is_protected(&entry.path) {
-                continue;
-            }
-            if let Some(sig) = self
-                .signatures
-                .signatures
-                .iter()
-                .find(|s| s.rule.matches(entry, now_unix))
-            {
-                matches.push(Match { entry, sig });
-            }
-        }
+        // First pass, in parallel: for each entry find the first matching
+        // signature index. Each path is normalized exactly once.
+        let mut matches: Vec<(&FileEntry, usize)> = entries
+            .par_iter()
+            .filter_map(|entry| {
+                if crate::safety::is_protected(&entry.path) {
+                    return None;
+                }
+                let norm_path = normalize(&entry.path.to_string_lossy());
+                let name_lower = norm_path
+                    .trim_end_matches('\\')
+                    .rsplit('\\')
+                    .next()
+                    .unwrap_or("");
+                self.signatures
+                    .iter()
+                    .position(|s| {
+                        s.rule.matches(
+                            &norm_path,
+                            name_lower,
+                            entry.is_dir,
+                            entry.modified,
+                            now_unix,
+                        )
+                    })
+                    .map(|idx| (entry, idx))
+            })
+            .collect();
 
         // Second pass: prune matches nested under an already-accepted directory,
-        // so a cache directory is suggested once rather than per-file.
-        matches.sort_by_key(|m| m.entry.path.as_os_str().len());
+        // so a cache directory is suggested once rather than per-file. Sorting by
+        // path length guarantees ancestors are processed before descendants.
+        matches.sort_by_key(|(e, _)| e.path.as_os_str().len());
         let mut accepted_dirs: Vec<PathBuf> = Vec::new();
-        let mut suggestions: Vec<Suggestion> = Vec::new();
-
-        for m in matches {
-            let path = &m.entry.path;
-            // Matches are sorted shortest-path-first, so any accepted directory
-            // that is a prefix of this path is a true ancestor already covering
-            // it. `starts_with` compares whole components, so `\downloads` does
-            // not spuriously prefix `\downloads-old`.
-            if accepted_dirs.iter().any(|d| path.starts_with(d)) {
+        let mut accepted: Vec<(&FileEntry, usize)> = Vec::new();
+        for (entry, sig_idx) in matches {
+            if accepted_dirs.iter().any(|d| entry.path.starts_with(d)) {
                 continue;
             }
+            if entry.is_dir {
+                accepted_dirs.push(entry.path.clone());
+            }
+            accepted.push((entry, sig_idx));
+        }
 
-            let size = if m.entry.is_dir {
-                dir_index.size_of(path)
+        // Size only the accepted directories (usually a handful), and skip the
+        // work entirely when the analysis matched only files.
+        let dir_index =
+            (!accepted_dirs.is_empty()).then(|| DirSizeIndex::build_for(entries, &accepted_dirs));
+
+        let mut suggestions: Vec<Suggestion> = Vec::new();
+        for (entry, sig_idx) in accepted {
+            let path = &entry.path;
+            let size = if entry.is_dir {
+                dir_index.as_ref().map_or(0, |idx| idx.size_of(path))
             } else {
-                m.entry.size
+                entry.size
             };
             if size == 0 {
-                continue; // nothing to reclaim
+                continue;
             }
-
-            if m.entry.is_dir {
-                accepted_dirs.push(path.clone());
-            }
-
+            let sig = &self.signatures[sig_idx];
             suggestions.push(Suggestion {
-                signature_id: m.sig.id.clone(),
-                title: m.sig.title.clone(),
-                category: m.sig.category.clone(),
-                confidence: m.sig.confidence.label().to_string(),
+                signature_id: sig.id.clone(),
+                title: sig.title.clone(),
+                category: sig.category.clone(),
+                confidence: sig.confidence.label().to_string(),
                 path: path.clone(),
-                is_dir: m.entry.is_dir,
+                is_dir: entry.is_dir,
                 size,
-                reason: m.sig.description.clone(),
+                reason: sig.description.clone(),
             });
         }
 
@@ -180,9 +299,6 @@ mod tests {
                 },
             )],
         };
-        // Forward-slash paths so std::path treats them as separators on the
-        // (non-Windows) test host; on Windows real backslash paths behave the
-        // same way.
         let entries = vec![
             FileEntry::dir("/proj/node_modules"),
             FileEntry::file("/proj/node_modules/a.js", 1000),
@@ -243,5 +359,28 @@ mod tests {
         assert_eq!(report.total_reclaimable, 1100);
         assert_eq!(report.reclaimable_up_to(Confidence::Safe), 100);
         assert_eq!(report.reclaimable_up_to(Confidence::ReviewNeeded), 1100);
+    }
+
+    #[test]
+    fn age_gated_glob_matches_old_files_only() {
+        let set = SignatureSet {
+            signatures: vec![sig(
+                "old-exe",
+                Confidence::LikelySafe,
+                MatchRule::Glob {
+                    patterns: vec!["*.exe".to_string()],
+                    within: Some(r"\downloads\".to_string()),
+                    min_age_days: Some(90),
+                },
+            )],
+        };
+        let now = 1000 * 86_400;
+        let entries = vec![
+            FileEntry::file("/x/Downloads/old.exe", 10).with_modified(Some(800 * 86_400)),
+            FileEntry::file("/x/Downloads/new.exe", 10).with_modified(Some(990 * 86_400)),
+        ];
+        let report = Analyzer::new(set).analyze(&entries, now);
+        assert_eq!(report.suggestions.len(), 1);
+        assert!(report.suggestions[0].path.ends_with("old.exe"));
     }
 }

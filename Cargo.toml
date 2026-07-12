@@ -8,7 +8,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 rust-version = "1.85"
 license = "MIT"
@@ -60,10 +60,10 @@ purify-ntfs = { path = "crates/purify-ntfs" }
 
 [profile.release]
 # Optimize for a small, fast single-file binary — this is a utility users
-# download and run, not a library. LTO + one codegen unit trades compile time
-# for runtime speed and size, which is the right call for release artifacts.
+# download and run, not a library. Full LTO + one codegen unit maximizes
+# runtime speed and minimizes size, the right trade for release artifacts.
 opt-level = 3
-lto = "thin"
+lto = "fat"
 codegen-units = 1
 strip = true
 panic = "abort"

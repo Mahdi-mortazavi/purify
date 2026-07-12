@@ -124,21 +124,70 @@ pub struct DirSizeIndex {
 
 impl DirSizeIndex {
     /// Build the index from a full list of scanned entries.
+    ///
+    /// Parallelized with `rayon`: each worker folds a slice of files into its own
+    /// map, then the per-worker maps are reduced together. Each file attributes
+    /// its bytes to every ancestor directory exactly once.
     #[must_use]
     pub fn build(entries: &[FileEntry]) -> Self {
-        let mut sizes: HashMap<PathBuf, u64> = HashMap::new();
-        for entry in entries {
-            if entry.is_dir || entry.size == 0 {
-                continue;
-            }
-            // Attribute this file's bytes to each ancestor directory.
-            for ancestor in entry.path.ancestors().skip(1) {
-                if ancestor.as_os_str().is_empty() {
-                    continue;
+        use rayon::prelude::*;
+
+        let sizes = entries
+            .par_iter()
+            .filter(|e| !e.is_dir && e.size > 0)
+            .fold(HashMap::<PathBuf, u64>::new, |mut acc, entry| {
+                for ancestor in entry.path.ancestors().skip(1) {
+                    if ancestor.as_os_str().is_empty() {
+                        continue;
+                    }
+                    *acc.entry(ancestor.to_path_buf()).or_insert(0) += entry.size;
                 }
-                *sizes.entry(ancestor.to_path_buf()).or_insert(0) += entry.size;
-            }
+                acc
+            })
+            .reduce(HashMap::new, |mut a, b| {
+                for (k, v) in b {
+                    *a.entry(k).or_insert(0) += v;
+                }
+                a
+            });
+        Self { sizes }
+    }
+
+    /// Build an index that sizes **only** the given directories.
+    ///
+    /// This is much cheaper than [`DirSizeIndex::build`] when only a handful of
+    /// directories are of interest (the usual case after pruning): each file
+    /// walks its ancestors and does an allocation-free set lookup, allocating a
+    /// key only for the (few) directories actually being sized. A pruned set of
+    /// target dirs is non-nested, so each file contributes to at most one.
+    #[must_use]
+    pub fn build_for(entries: &[FileEntry], dirs: &[PathBuf]) -> Self {
+        use rayon::prelude::*;
+        use std::collections::HashSet;
+
+        if dirs.is_empty() {
+            return Self::default();
         }
+        let targets: HashSet<&Path> = dirs.iter().map(PathBuf::as_path).collect();
+
+        let sizes = entries
+            .par_iter()
+            .filter(|e| !e.is_dir && e.size > 0)
+            .fold(HashMap::<PathBuf, u64>::new, |mut acc, entry| {
+                for ancestor in entry.path.ancestors().skip(1) {
+                    if targets.contains(ancestor) {
+                        *acc.entry(ancestor.to_path_buf()).or_insert(0) += entry.size;
+                        break; // pruned targets are non-nested: at most one match
+                    }
+                }
+                acc
+            })
+            .reduce(HashMap::new, |mut a, b| {
+                for (k, v) in b {
+                    *a.entry(k).or_insert(0) += v;
+                }
+                a
+            });
         Self { sizes }
     }
 

@@ -256,8 +256,13 @@ pub(crate) fn last_component(path: &Path) -> String {
 /// Minimal wildcard match supporting a single `*` (any run of characters).
 /// Case-insensitive. Sufficient for signature patterns like `*.tmp` or `~$*`.
 pub(crate) fn wildcard_match(name: &str, pattern: &str) -> bool {
-    let name = name.to_ascii_lowercase();
-    let pattern = pattern.to_ascii_lowercase();
+    wildcard_match_lower(&name.to_ascii_lowercase(), &pattern.to_ascii_lowercase())
+}
+
+/// Allocation-free wildcard match that assumes both inputs are already
+/// lowercase. Used on the hot analysis path where the name and patterns are
+/// pre-lowercased once.
+pub(crate) fn wildcard_match_lower(name: &str, pattern: &str) -> bool {
     match pattern.split_once('*') {
         None => name == pattern,
         Some((prefix, suffix)) => {
