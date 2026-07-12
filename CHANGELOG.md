@@ -2,6 +2,28 @@
 
 All notable changes to purify are documented here.
 
+## v0.1.3 — macOS-inspired desktop redesign
+
+A complete visual overhaul of the desktop app in the style of a modern macOS
+application ("Liquid Glass"): translucent frosted-glass materials,
+continuous-corner geometry, SF-style typography, a refined indigo→blue accent,
+and spring micro-interactions. Fully realized in **both light and dark**.
+
+- **Source-list sidebar** with Disk Map / Cleanup / Quarantine navigation, live
+  reclaimable + held badges, and a compact **startup-disk gauge** in the footer.
+- **Unified glass toolbar** with a focus-ring path field, primary/secondary
+  actions, and an appearance (light/dark) toggle.
+- **Disk Map**: an interactive gradient **treemap** with total/file metrics;
+  directories and loose files are visually distinguished.
+- **Cleanup**: a prominent reclaimable **CTA** with a macOS-style **segmented
+  control** (Safe / +Likely / +Review) and confidence-badged suggestion cards.
+- **Quarantine**: cards with per-item Restore / Purge.
+- Motion respects `prefers-reduced-motion`; the treemap composites on the GPU.
+
+The redesign was validated by rendering the real UI headlessly (Chromium) with
+a mocked backend and reviewing screenshots across every view and both themes.
+No backend/command changes — the Tauri command surface is unchanged.
+
 ## v0.1.2 — performance & full Windows testing
 
 ### Performance

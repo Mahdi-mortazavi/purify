@@ -5,339 +5,593 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Purify</title>
   <style>
+    /* ===========================================================================
+       Purify — a macOS-inspired "Liquid Glass" interface.
+       Translucent materials, continuous-corner geometry, SF-style typography,
+       and spring micro-interactions. Light and dark, both first-class.
+       =========================================================================== */
     :root {
-      --bg: #0b0f10;
-      --panel: #12181a;
-      --panel-2: #1a2226;
-      --text: #e6edf0;
-      --muted: #8aa0a8;
-      --accent: #0d9488;
-      --accent-2: #14b8a6;
-      --safe: #22c55e;
-      --likely: #eab308;
-      --review: #f97316;
-      --border: #22303a;
-      --danger: #ef4444;
+      color-scheme: light dark;
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+              "Segoe UI", "Inter", system-ui, sans-serif;
+
+      /* Wallpaper (sits behind the frosted glass) */
+      --wall-1: #eaf0f7;
+      --wall-2: #f3eefb;
+      --wall-3: #e9f6f3;
+      --wall-solid: #eef1f6;
+
+      /* Materials */
+      --glass: rgba(255, 255, 255, 0.66);
+      --glass-strong: rgba(255, 255, 255, 0.80);
+      --sidebar: rgba(255, 255, 255, 0.48);
+      --hairline: rgba(0, 0, 0, 0.08);
+      --edge-hi: rgba(255, 255, 255, 0.75);
+
+      /* Ink */
+      --ink: #1b1d21;
+      --ink-2: #5b6470;
+      --ink-3: #8a95a3;
+
+      /* Accent — a refined indigo→blue, macOS-native feel */
+      --accent: #0a84ff;
+      --accent-2: #5e5ce6;
+      --accent-grad: linear-gradient(135deg, #5e5ce6, #0a84ff);
+
+      /* Semantic */
+      --safe: #34c759;
+      --likely: #ff9f0a;
+      --review: #ff375f;
+
+      --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.08);
+      --shadow-md: 0 8px 30px rgba(16, 24, 40, 0.12);
+      --shadow-lg: 0 24px 60px rgba(16, 24, 40, 0.20);
+      --r-lg: 20px;
+      --r-md: 14px;
+      --r-sm: 10px;
+      --spring: cubic-bezier(0.34, 1.4, 0.5, 1);
     }
-    @media (prefers-color-scheme: light) {
+    :root[data-theme="dark"], :root:not([data-theme]) {
+    }
+    @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #f5f7f8; --panel: #ffffff; --panel-2: #eef2f4;
-        --text: #0b1417; --muted: #55707a; --border: #dde5e9;
+        --wall-1: #14161c;
+        --wall-2: #191622;
+        --wall-3: #101a1a;
+        --wall-solid: #0d0f13;
+        --glass: rgba(32, 34, 40, 0.60);
+        --glass-strong: rgba(38, 40, 47, 0.78);
+        --sidebar: rgba(28, 30, 36, 0.50);
+        --hairline: rgba(255, 255, 255, 0.09);
+        --edge-hi: rgba(255, 255, 255, 0.10);
+        --ink: #f2f4f8;
+        --ink-2: #a6b0bd;
+        --ink-3: #6c7684;
+        --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.45);
+        --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55);
       }
     }
+    :root[data-theme="light"] {
+      --wall-1: #eaf0f7; --wall-2: #f3eefb; --wall-3: #e9f6f3; --wall-solid: #eef1f6;
+      --glass: rgba(255,255,255,0.66); --glass-strong: rgba(255,255,255,0.80);
+      --sidebar: rgba(255,255,255,0.48); --hairline: rgba(0,0,0,0.08);
+      --edge-hi: rgba(255,255,255,0.75);
+      --ink: #1b1d21; --ink-2: #5b6470; --ink-3: #8a95a3;
+      --shadow-md: 0 8px 30px rgba(16,24,40,0.12); --shadow-lg: 0 24px 60px rgba(16,24,40,0.20);
+    }
+    :root[data-theme="dark"] {
+      --wall-1: #14161c; --wall-2: #191622; --wall-3: #101a1a; --wall-solid: #0d0f13;
+      --glass: rgba(32,34,40,0.60); --glass-strong: rgba(38,40,47,0.78);
+      --sidebar: rgba(28,30,36,0.50); --hairline: rgba(255,255,255,0.09);
+      --edge-hi: rgba(255,255,255,0.10);
+      --ink: #f2f4f8; --ink-2: #a6b0bd; --ink-3: #6c7684;
+      --shadow-md: 0 8px 30px rgba(0,0,0,0.45); --shadow-lg: 0 24px 60px rgba(0,0,0,0.55);
+    }
+
     * { box-sizing: border-box; }
+    html, body { height: 100%; }
     body {
-      margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg); color: var(--text); height: 100vh; overflow: hidden;
-    }
-    .app { display: grid; grid-template-rows: auto auto 1fr; height: 100vh; }
-    header {
-      display: flex; align-items: center; gap: 12px; padding: 14px 18px;
-      background: var(--panel); border-bottom: 1px solid var(--border);
-    }
-    .logo { font-weight: 700; font-size: 18px; letter-spacing: .5px; }
-    .logo span { color: var(--accent-2); }
-    input[type=text] {
-      flex: 1; background: var(--panel-2); border: 1px solid var(--border);
-      color: var(--text); padding: 9px 12px; border-radius: 8px; font-size: 14px;
-    }
-    button {
-      background: var(--accent); color: #fff; border: none; padding: 9px 14px;
-      border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
-    }
-    button.ghost { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
-    button.danger { background: var(--danger); }
-    button:disabled { opacity: .5; cursor: default; }
-    button:hover:not(:disabled) { filter: brightness(1.08); }
-
-    .guardbar { padding: 10px 18px; background: var(--panel); border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; gap: 14px; font-size: 13px; }
-    .meter { flex: 1; height: 10px; background: var(--panel-2); border-radius: 6px; overflow: hidden; }
-    .meter > div { height: 100%; background: linear-gradient(90deg, var(--safe), var(--likely), var(--review));
-      transition: width .35s cubic-bezier(.2,.8,.2,1); }
-    .pill { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-    .pill.ok { background: rgba(34,197,94,.18); color: var(--safe); }
-    .pill.warning { background: rgba(234,179,8,.18); color: var(--likely); }
-    .pill.critical { background: rgba(239,68,68,.2); color: var(--danger); }
-
-    main { display: grid; grid-template-columns: 1.3fr 1fr; gap: 0; min-height: 0; }
-    .col { min-height: 0; display: flex; flex-direction: column; }
-    .col + .col { border-left: 1px solid var(--border); }
-    .col h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted);
-      margin: 0; padding: 14px 18px 8px; display: flex; justify-content: space-between; align-items: center; }
-    .scroll { overflow-y: auto; padding: 6px 18px 18px; }
-
-    /* Promote the treemap to its own GPU compositor layer for smooth scrolling
-       and transform animations (WebView2 hardware-accelerates these). */
-    .treemap { display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start;
-      transform: translateZ(0); }
-    .tile { border-radius: 8px; padding: 10px; color: #fff; overflow: hidden;
-      background: var(--accent); display: flex; flex-direction: column; justify-content: space-between;
-      min-height: 54px; will-change: transform;
-      /* Animate only compositor-friendly properties (transform/box-shadow),
-         never layout-triggering ones, so hover stays at 60fps on the GPU. */
-      transition: transform .15s ease, box-shadow .15s ease;
-      animation: tile-in .18s ease both; }
-    .tile:hover { transform: translateY(-3px) scale(1.02);
-      box-shadow: 0 8px 20px rgba(0,0,0,.35); z-index: 1; }
-    .tile small { opacity: .85; font-size: 11px; word-break: break-all; }
-    .tile b { font-size: 13px; }
-    @keyframes tile-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-    @media (prefers-reduced-motion: reduce) {
-      .tile { animation: none; transition: none; }
+      margin: 0; font-family: var(--font); color: var(--ink);
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+      background:
+        radial-gradient(60vw 60vh at 12% -10%, var(--wall-2), transparent 60%),
+        radial-gradient(50vw 50vh at 105% 0%, var(--wall-3), transparent 55%),
+        radial-gradient(70vw 70vh at 50% 120%, var(--wall-1), transparent 60%),
+        var(--wall-solid);
+      overflow: hidden; user-select: none;
     }
 
-    .item { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-      padding: 12px; margin-bottom: 10px; }
-    .item .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-    .item .path { font-size: 13px; word-break: break-all; }
-    .item .reason { font-size: 12px; color: var(--muted); margin-top: 5px; }
-    .badge { font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
-    .badge.safe { background: rgba(34,197,94,.18); color: var(--safe); }
-    .badge.likely-safe { background: rgba(234,179,8,.18); color: var(--likely); }
-    .badge.review-needed { background: rgba(249,115,22,.18); color: var(--review); }
-    .size { font-variant-numeric: tabular-nums; font-weight: 700; }
-    .actions { display: flex; gap: 8px; padding: 0 18px 14px; }
-    .empty { color: var(--muted); font-size: 13px; padding: 20px 0; text-align: center; }
-    .tabbtn { background: transparent; color: var(--muted); border: none; padding: 4px 8px; font-weight: 700; }
-    .tabbtn.active { color: var(--accent-2); }
-    .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-      background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
-      padding: 10px 16px; border-radius: 10px; font-size: 13px; opacity: 0; transition: opacity .2s;
-      pointer-events: none; }
-    .toast.show { opacity: 1; }
+    .app { display: grid; grid-template-columns: 248px 1fr; height: 100vh; }
+
+    /* ---------------------------------------------------------------- Sidebar */
+    .sidebar {
+      background: var(--sidebar);
+      -webkit-backdrop-filter: blur(40px) saturate(180%);
+      backdrop-filter: blur(40px) saturate(180%);
+      border-right: 0.5px solid var(--hairline);
+      display: flex; flex-direction: column; padding: 16px 12px; gap: 4px;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; padding: 10px 10px 16px; }
+    .brand .mark {
+      width: 30px; height: 30px; border-radius: 9px; background: var(--accent-grad);
+      display: grid; place-items: center; color: #fff; box-shadow: var(--shadow-sm);
+      flex: 0 0 auto;
+    }
+    .brand .mark svg { width: 17px; height: 17px; }
+    .brand .name { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+    .nav-label { font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+      text-transform: uppercase; color: var(--ink-3); padding: 8px 12px 4px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 11px; padding: 8px 11px;
+      border-radius: 10px; color: var(--ink-2); font-size: 13.5px; font-weight: 500;
+      cursor: pointer; transition: background .18s var(--spring), color .18s, transform .1s;
+    }
+    .nav-item svg { width: 18px; height: 18px; opacity: .9; flex: 0 0 auto; }
+    .nav-item:hover { background: rgba(127,127,127,0.10); color: var(--ink); }
+    .nav-item.active { background: var(--accent-grad); color: #fff; box-shadow: var(--shadow-sm); }
+    .nav-item.active svg { opacity: 1; }
+    .nav-item:active { transform: scale(0.98); }
+    .nav-badge { margin-left: auto; font-size: 11px; font-weight: 700;
+      background: rgba(127,127,127,0.18); color: var(--ink-2); padding: 1px 7px; border-radius: 999px; }
+    .nav-item.active .nav-badge { background: rgba(255,255,255,0.25); color: #fff; }
+
+    .sidebar .spacer { flex: 1; }
+
+    /* Disk gauge card in the sidebar footer */
+    .gauge {
+      margin-top: 8px; padding: 14px; border-radius: var(--r-md);
+      background: var(--glass); border: 0.5px solid var(--hairline);
+      box-shadow: inset 0 1px 0 var(--edge-hi);
+    }
+    .gauge .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .gauge .ttl { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+    .gauge .state { font-size: 10.5px; font-weight: 800; letter-spacing: .03em;
+      padding: 2px 8px; border-radius: 999px; text-transform: uppercase; }
+    .gauge .state.ok { background: rgba(52,199,89,.16); color: var(--safe); }
+    .gauge .state.warning { background: rgba(255,159,10,.16); color: var(--likely); }
+    .gauge .state.critical { background: rgba(255,55,95,.16); color: var(--review); }
+    .track { height: 8px; border-radius: 999px; background: rgba(127,127,127,.18); overflow: hidden; }
+    .track > i { display: block; height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, var(--safe), var(--likely), var(--review));
+      width: 0%; transition: width .6s var(--spring); }
+    .gauge .lbl { margin-top: 9px; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+    /* ---------------------------------------------------------------- Main */
+    .main { display: flex; flex-direction: column; min-width: 0; }
+    .toolbar {
+      display: flex; align-items: center; gap: 10px; padding: 14px 22px;
+      -webkit-backdrop-filter: blur(30px) saturate(160%);
+      backdrop-filter: blur(30px) saturate(160%);
+      border-bottom: 0.5px solid var(--hairline);
+    }
+    .field {
+      flex: 1; display: flex; align-items: center; gap: 9px; min-width: 0;
+      background: var(--glass); border: 0.5px solid var(--hairline);
+      border-radius: 11px; padding: 9px 13px; box-shadow: inset 0 1px 0 var(--edge-hi);
+      transition: box-shadow .2s, border-color .2s;
+    }
+    .field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(10,132,255,.18); }
+    .field svg { width: 16px; height: 16px; color: var(--ink-3); flex: 0 0 auto; }
+    .field input {
+      flex: 1; border: none; outline: none; background: transparent; color: var(--ink);
+      font-family: var(--font); font-size: 13.5px; min-width: 0;
+    }
+    .field input::placeholder { color: var(--ink-3); }
+
+    .btn {
+      font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer;
+      border: none; border-radius: 11px; padding: 9px 15px; color: #fff;
+      background: var(--accent-grad); box-shadow: var(--shadow-sm);
+      transition: transform .12s var(--spring), filter .15s, box-shadow .15s;
+      white-space: nowrap; display: inline-flex; align-items: center; gap: 7px;
+    }
+    .btn svg { width: 15px; height: 15px; }
+    .btn:hover { filter: brightness(1.05); box-shadow: var(--shadow-md); }
+    .btn:active { transform: scale(0.97); }
+    .btn.secondary { background: var(--glass-strong); color: var(--ink);
+      border: 0.5px solid var(--hairline); box-shadow: inset 0 1px 0 var(--edge-hi); }
+    .btn.ghost { background: transparent; color: var(--ink-2); box-shadow: none; }
+    .btn.danger { background: linear-gradient(135deg, #ff6482, #ff375f); }
+    .btn:disabled { opacity: .5; cursor: default; transform: none; }
+    .icon-btn { width: 34px; height: 34px; padding: 0; justify-content: center;
+      background: var(--glass-strong); color: var(--ink); border: 0.5px solid var(--hairline);
+      box-shadow: inset 0 1px 0 var(--edge-hi); }
+
+    .content { flex: 1; overflow-y: auto; padding: 26px 26px 40px; }
+    .view { display: none; animation: rise .4s var(--spring) both; }
+    .view.active { display: block; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    .headline { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; gap: 16px; }
+    .headline h1 { margin: 0; font-size: 26px; font-weight: 680; letter-spacing: -0.025em; }
+    .headline p { margin: 4px 0 0; color: var(--ink-2); font-size: 13.5px; }
+    .metrics { display: flex; gap: 10px; }
+    .metric { text-align: right; padding: 8px 14px; border-radius: var(--r-md);
+      background: var(--glass); border: 0.5px solid var(--hairline); box-shadow: inset 0 1px 0 var(--edge-hi); }
+    .metric b { display: block; font-size: 18px; font-weight: 700; letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums; }
+    .metric span { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+
+    .panel { background: var(--glass); border: 0.5px solid var(--hairline);
+      border-radius: var(--r-lg); box-shadow: var(--shadow-md), inset 0 1px 0 var(--edge-hi);
+      -webkit-backdrop-filter: blur(30px) saturate(160%); backdrop-filter: blur(30px) saturate(160%);
+      padding: 18px; }
+    .panel + .panel { margin-top: 16px; }
+    .panel h2 { margin: 0 0 14px; font-size: 13px; font-weight: 600; letter-spacing: .02em;
+      color: var(--ink-2); display: flex; align-items: center; justify-content: space-between; }
+
+    /* Treemap ------------------------------------------------------------ */
+    .treemap { display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; transform: translateZ(0); }
+    .tile {
+      position: relative; border-radius: var(--r-md); padding: 13px 14px; overflow: hidden;
+      min-height: 78px; color: #fff; display: flex; flex-direction: column; justify-content: space-between;
+      background: var(--accent-grad); box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.25);
+      will-change: transform; cursor: default;
+      transition: transform .18s var(--spring), box-shadow .18s;
+      animation: tile-in .28s var(--spring) both;
+    }
+    .tile:hover { transform: translateY(-4px) scale(1.015); box-shadow: var(--shadow-lg); z-index: 1; }
+    .tile .sz { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+    .tile .nm { font-size: 11.5px; opacity: .92; word-break: break-all; line-height: 1.25; margin-top: 6px; }
+    .tile .kind { position: absolute; top: 11px; right: 12px; opacity: .8; }
+    .tile .kind svg { width: 15px; height: 15px; }
+    @keyframes tile-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+
+    /* Suggestion / quarantine cards ------------------------------------- */
+    .list { display: flex; flex-direction: column; gap: 10px; }
+    .card {
+      display: flex; align-items: center; gap: 13px; padding: 13px 15px;
+      background: var(--glass); border: 0.5px solid var(--hairline); border-radius: var(--r-md);
+      box-shadow: var(--shadow-sm), inset 0 1px 0 var(--edge-hi);
+      transition: transform .16s var(--spring), box-shadow .16s;
+      animation: tile-in .3s var(--spring) both;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .dot { width: 34px; height: 34px; border-radius: 10px; flex: 0 0 auto; display: grid; place-items: center; }
+    .dot svg { width: 17px; height: 17px; color: #fff; }
+    .dot.safe { background: linear-gradient(135deg, #5be584, #34c759); }
+    .dot.likely-safe { background: linear-gradient(135deg, #ffd166, #ff9f0a); }
+    .dot.review-needed { background: linear-gradient(135deg, #ff7a99, #ff375f); }
+    .card .body { flex: 1; min-width: 0; }
+    .card .title { font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .chip { font-size: 10px; font-weight: 800; letter-spacing: .03em; padding: 2px 7px; border-radius: 999px; text-transform: uppercase; }
+    .chip.safe { background: rgba(52,199,89,.16); color: var(--safe); }
+    .chip.likely-safe { background: rgba(255,159,10,.16); color: var(--likely); }
+    .chip.review-needed { background: rgba(255,55,95,.16); color: var(--review); }
+    .card .path { font-size: 12px; color: var(--ink-2); word-break: break-all; margin-top: 3px; }
+    .card .reason { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }
+    .card .sz { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+      flex: 0 0 auto; text-align: right; }
+    .card .acts { display: flex; gap: 7px; flex: 0 0 auto; }
+
+    /* Segmented control -------------------------------------------------- */
+    .seg { display: inline-flex; background: rgba(127,127,127,.14); border-radius: 10px; padding: 3px; gap: 2px; }
+    .seg button { border: none; background: transparent; color: var(--ink-2); font-family: var(--font);
+      font-size: 12.5px; font-weight: 600; padding: 5px 12px; border-radius: 8px; cursor: pointer;
+      transition: background .18s var(--spring), color .18s; }
+    .seg button.on { background: var(--glass-strong); color: var(--ink); box-shadow: var(--shadow-sm); }
+
+    .cta { display: flex; align-items: center; justify-content: space-between; gap: 14px;
+      padding: 16px 18px; border-radius: var(--r-md); margin-bottom: 16px;
+      background: linear-gradient(135deg, rgba(94,92,230,.14), rgba(10,132,255,.12));
+      border: 0.5px solid var(--hairline); box-shadow: inset 0 1px 0 var(--edge-hi); }
+    .cta .txt b { font-size: 15px; font-weight: 680; letter-spacing: -0.01em; }
+    .cta .txt p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-2); }
+
+    .empty { text-align: center; color: var(--ink-3); font-size: 13.5px; padding: 48px 20px; }
+    .empty .ico { width: 46px; height: 46px; margin: 0 auto 14px; opacity: .5; }
+
+    /* Toast -------------------------------------------------------------- */
+    .toast { position: fixed; bottom: 22px; left: 50%; transform: translate(-50%, 16px);
+      background: var(--glass-strong); border: 0.5px solid var(--hairline); color: var(--ink);
+      -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+      padding: 11px 18px; border-radius: 13px; font-size: 13px; font-weight: 500;
+      box-shadow: var(--shadow-lg); opacity: 0; transition: all .34s var(--spring); pointer-events: none; z-index: 50; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    .content::-webkit-scrollbar { width: 11px; }
+    .content::-webkit-scrollbar-thumb { background: rgba(127,127,127,.28); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
   </style>
 </head>
 <body>
   <div class="app">
-    <header>
-      <div class="logo">purify<span>·</span></div>
-      <input id="path" type="text" placeholder="Path to scan (e.g. C:\Users\me)" value="C:\" />
-      <button id="scanBtn">Scan</button>
-      <button id="analyzeBtn" class="ghost">Analyze</button>
-    </header>
-
-    <div class="guardbar">
-      <span id="guardText" class="muted">Disk: —</span>
-      <div class="meter"><div id="guardMeter" style="width:0%"></div></div>
-      <span id="guardPill" class="pill ok">—</span>
-    </div>
-
-    <main>
-      <div class="col">
-        <h2>Disk map <span id="scanTotal" class="muted"></span></h2>
-        <div class="scroll"><div id="treemap" class="treemap">
-          <div class="empty">Enter a path and press Scan to see what fills your disk.</div>
-        </div></div>
-      </div>
-
-      <div class="col">
-        <h2>
-          <span>
-            <button class="tabbtn active" id="tabSuggest">Suggestions</button>
-            <button class="tabbtn" id="tabQuarantine">Quarantine</button>
-          </span>
-          <span id="reclaimTotal" class="muted"></span>
-        </h2>
-        <div class="actions" id="cleanActions" style="display:none">
-          <button id="cleanSafe">Clean safe items</button>
-          <button id="cleanLikely" class="ghost">Include likely-safe</button>
+    <!-- Sidebar ----------------------------------------------------------- -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="mark">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5c3 3.2 5.5 5.8 5.5 9.4A5.5 5.5 0 0 1 12 17.4a5.5 5.5 0 0 1-5.5-5.5C6.5 8.3 9 5.7 12 2.5Z" fill="currentColor" opacity=".95"/><circle cx="10.2" cy="10" r="1.4" fill="#fff" opacity=".85"/></svg>
         </div>
-        <div class="scroll"><div id="list">
-          <div class="empty">Press Analyze to get safe cleanup suggestions.</div>
-        </div></div>
+        <div class="name">Purify</div>
       </div>
-    </main>
+
+      <div class="nav-label">Library</div>
+      <div class="nav-item active" data-view="overview">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="2" fill="currentColor"/><rect x="13" y="3" width="8" height="5" rx="2" fill="currentColor" opacity=".6"/><rect x="13" y="10" width="8" height="11" rx="2" fill="currentColor"/><rect x="3" y="13" width="8" height="8" rx="2" fill="currentColor" opacity=".6"/></svg>
+        <span>Disk Map</span>
+      </div>
+      <div class="nav-item" data-view="cleanup">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M5 14l4-9 3 4 2-2 5 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="18" cy="5" r="1.6" fill="currentColor"/></svg>
+        <span>Cleanup</span>
+        <span class="nav-badge" id="navReclaim">—</span>
+      </div>
+      <div class="nav-item" data-view="quarantine">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 7l1.5 12.5a1 1 0 0 0 1 .9h11a1 1 0 0 0 1-.9L20 7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><rect x="3" y="4" width="18" height="4" rx="1.5" fill="currentColor" opacity=".85"/><path d="M10 12h4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>Quarantine</span>
+        <span class="nav-badge" id="navHeld">0</span>
+      </div>
+
+      <div class="spacer"></div>
+
+      <div class="gauge">
+        <div class="top">
+          <span class="ttl">Startup Disk</span>
+          <span id="gState" class="state ok">—</span>
+        </div>
+        <div class="track"><i id="gBar"></i></div>
+        <div class="lbl" id="gLbl">Reading…</div>
+      </div>
+    </aside>
+
+    <!-- Main -------------------------------------------------------------- -->
+    <div class="main">
+      <div class="toolbar">
+        <div class="field">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="1.8"/></svg>
+          <input id="path" type="text" spellcheck="false" placeholder="Path to inspect — e.g. C:\Users\me" value="C:\" />
+        </div>
+        <button class="btn" id="scanBtn">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.2-3.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Scan
+        </button>
+        <button class="btn secondary" id="analyzeBtn">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v3M12 18v3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M3 12h3M18 12h3M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Analyze
+        </button>
+        <button class="btn icon-btn" id="themeBtn" title="Toggle appearance">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+
+      <div class="content">
+        <!-- Disk Map ---------------------------------------------------- -->
+        <section class="view active" id="view-overview">
+          <div class="headline">
+            <div>
+              <h1>Disk Map</h1>
+              <p id="ovSub">See what's taking up space, at a glance.</p>
+            </div>
+            <div class="metrics" id="ovMetrics"></div>
+          </div>
+          <div class="panel">
+            <h2>Largest consumers</h2>
+            <div id="treemap" class="treemap">
+              <div class="empty">
+                <svg class="ico" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="2" fill="currentColor"/><rect x="13" y="13" width="8" height="8" rx="2" fill="currentColor"/></svg>
+                Press <b>Scan</b> to visualize your disk.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Cleanup ----------------------------------------------------- -->
+        <section class="view" id="view-cleanup">
+          <div class="headline">
+            <div>
+              <h1>Cleanup</h1>
+              <p>Reversible by design — everything moves to quarantine, nothing is deleted.</p>
+            </div>
+          </div>
+          <div class="cta" id="cleanCta" style="display:none">
+            <div class="txt">
+              <b id="ctaTotal">—</b>
+              <p>reclaimable across suggested items</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div class="seg" id="confSeg">
+                <button data-conf="safe" class="on">Safe</button>
+                <button data-conf="likely-safe">+ Likely</button>
+                <button data-conf="review-needed">+ Review</button>
+              </div>
+              <button class="btn" id="cleanBtn">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Clean
+              </button>
+            </div>
+          </div>
+          <div id="suggestList" class="list">
+            <div class="empty">
+              <svg class="ico" viewBox="0 0 24 24" fill="none"><path d="M5 14l4-9 3 4 2-2 5 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Press <b>Analyze</b> for safe cleanup suggestions.
+            </div>
+          </div>
+        </section>
+
+        <!-- Quarantine -------------------------------------------------- -->
+        <section class="view" id="view-quarantine">
+          <div class="headline">
+            <div>
+              <h1>Quarantine</h1>
+              <p>Held safely and restorable. Purge only when you're sure.</p>
+            </div>
+          </div>
+          <div id="quarList" class="list">
+            <div class="empty">
+              <svg class="ico" viewBox="0 0 24 24" fill="none"><path d="M4 7l1.5 12.5a1 1 0 0 0 1 .9h11a1 1 0 0 0 1-.9L20 7" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="4" width="18" height="4" rx="1.5" fill="currentColor"/></svg>
+              Nothing in quarantine.
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
   </div>
   <div id="toast" class="toast"></div>
 
   <script>
     const invoke = (cmd, args) => window.__TAURI__.core.invoke(cmd, args);
     const $ = (id) => document.getElementById(id);
-    let view = "suggest";
-    let lastAnalysis = null; // cache so the Suggestions tab can re-render cheaply
+    const state = { view: "overview", scan: null, analysis: null, conf: "safe" };
 
-    // Escape text before inserting into innerHTML. File names/paths can contain
-    // `&`, `<`, `>` which would otherwise corrupt rendering or break markup.
     function esc(s) {
-      return String(s)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
+      return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;")
+        .replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
     }
-
     function fmtBytes(n) {
-      const u = ["B","KiB","MiB","GiB","TiB","PiB"]; let i = 0; let v = n;
+      const u = ["B","KB","MB","GB","TB","PB"]; let i = 0, v = Number(n);
       while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
-      return i === 0 ? `${n} B` : `${v.toFixed(2)} ${u[i]}`;
-    }
-    function toast(msg) {
-      const t = $("toast"); t.textContent = msg; t.classList.add("show");
-      setTimeout(() => t.classList.remove("show"), 2200);
+      return (i === 0 ? v : v.toFixed(v < 10 ? 2 : 1)) + " " + u[i];
     }
     function pathVal() { return $("path").value.trim(); }
+    function toast(m) { const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), 2400); }
+    const kindSvg = (isDir) => isDir
+      ? '<svg viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" fill="currentColor"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none"><path d="M6 3h8l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" fill="currentColor"/></svg>';
+    const confIcon = (c) => c === "safe"
+      ? '<svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      : c === "likely-safe"
+      ? '<svg viewBox="0 0 24 24" fill="none"><path d="M12 8v5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="16.5" r="1.2" fill="currentColor"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none"><path d="M12 4 2.5 20h19L12 4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
+    /* Navigation ------------------------------------------------------- */
+    function setView(v) {
+      state.view = v;
+      document.querySelectorAll(".nav-item").forEach((n) => n.classList.toggle("active", n.dataset.view === v));
+      document.querySelectorAll(".view").forEach((s) => s.classList.toggle("active", s.id === "view-" + v));
+      if (v === "quarantine") renderQuarantine();
+    }
+
+    /* Disk gauge ------------------------------------------------------- */
     async function refreshGuard() {
       try {
         const r = await invoke("guard_path", { path: pathVal() });
         const pct = Math.round(r.used_fraction * 100);
-        $("guardText").textContent =
-          `${fmtBytes(r.space.available)} free of ${fmtBytes(r.space.total)}`;
-        $("guardMeter").style.width = pct + "%";
-        const pill = $("guardPill");
-        pill.textContent = `${pct}% used · ${r.pressure}`;
-        pill.className = "pill " + r.pressure;
-      } catch (e) {
-        // Reset the meter/pill so a failed refresh doesn't look like healthy
-        // stale data.
-        $("guardText").textContent = "Disk: " + e;
-        $("guardMeter").style.width = "0%";
-        const pill = $("guardPill");
-        pill.textContent = "—";
-        pill.className = "pill ok";
-      }
+        $("gBar").style.width = pct + "%";
+        const st = $("gState"); st.textContent = r.pressure; st.className = "state " + r.pressure;
+        $("gLbl").textContent = fmtBytes(r.space.available) + " free of " + fmtBytes(r.space.total);
+      } catch (e) { $("gLbl").textContent = "" + e; $("gBar").style.width = "0%"; $("gState").className = "state ok"; $("gState").textContent = "—"; }
     }
 
+    /* Scan / treemap --------------------------------------------------- */
     async function doScan() {
-      const btn = $("scanBtn"); btn.disabled = true; btn.textContent = "Scanning…";
+      const b = $("scanBtn"); b.disabled = true;
       try {
-        const rep = await invoke("scan_path", { path: pathVal(), top: 24 });
-        $("scanTotal").textContent = `${fmtBytes(rep.total_bytes)} · ${rep.file_count} files`;
-        renderTreemap(rep);
-        refreshGuard();
+        const rep = await invoke("scan_path", { path: pathVal(), top: 28 });
+        state.scan = rep; renderTreemap(rep); refreshGuard(); setView("overview");
       } catch (e) { toast("Scan failed: " + e); }
-      finally { btn.disabled = false; btn.textContent = "Scan"; }
+      finally { b.disabled = false; }
     }
-
     function renderTreemap(rep) {
-      const box = $("treemap"); box.innerHTML = "";
-      if (!rep.top.length) { box.innerHTML = '<div class="empty">Nothing found.</div>'; return; }
+      $("ovSub").textContent = rep.root;
+      $("ovMetrics").innerHTML =
+        `<div class="metric"><b>${fmtBytes(rep.total_bytes)}</b><span>Total</span></div>
+         <div class="metric"><b>${rep.file_count.toLocaleString()}</b><span>Files</span></div>`;
+      const box = $("treemap");
+      if (!rep.top || !rep.top.length) { box.innerHTML = '<div class="empty">Nothing found here.</div>'; return; }
       const max = rep.top[0].size || 1;
-      for (const c of rep.top) {
+      box.innerHTML = rep.top.map((c) => {
         const frac = c.size / max;
-        const el = document.createElement("div");
-        el.className = "tile";
-        const basis = Math.max(90, Math.round(frac * 320));
-        el.style.flex = `1 1 ${basis}px`;
-        el.style.background = c.is_dir ? "var(--accent)" : "var(--panel-2)";
-        if (!c.is_dir) el.style.color = "var(--text)";
-        const name = c.path.split(/[\\/]/).pop() || c.path;
-        el.innerHTML = `<b>${fmtBytes(c.size)}</b><small>${esc(name)}</small>`;
-        box.appendChild(el);
-      }
+        const basis = Math.max(120, Math.round(frac * 360));
+        const name = esc(c.path.split(/[\\/]/).filter(Boolean).pop() || c.path);
+        const bg = c.is_dir ? "" : "background:linear-gradient(135deg,#8e8e93,#636366)";
+        return `<div class="tile" style="flex:1 1 ${basis}px;${bg}">
+          <span class="kind">${kindSvg(c.is_dir)}</span>
+          <span class="sz">${fmtBytes(c.size)}</span><span class="nm">${name}</span></div>`;
+      }).join("");
     }
 
+    /* Analyze / suggestions ------------------------------------------- */
     async function doAnalyze() {
-      const btn = $("analyzeBtn"); btn.disabled = true; btn.textContent = "Analyzing…";
+      const b = $("analyzeBtn"); b.disabled = true;
       try {
         const rep = await invoke("analyze_path", { path: pathVal() });
-        lastAnalysis = rep;
-        view = "suggest"; setTab();
-        renderSuggestions(rep);
+        state.analysis = rep; renderSuggestions(rep); setView("cleanup");
       } catch (e) { toast("Analyze failed: " + e); }
-      finally { btn.disabled = false; btn.textContent = "Analyze"; }
+      finally { b.disabled = false; }
     }
-
+    function rank(c) { return c === "safe" ? 0 : c === "likely-safe" ? 1 : 2; }
     function renderSuggestions(rep) {
-      const list = $("list"); list.innerHTML = "";
-      $("cleanActions").style.display = rep.suggestions.length ? "flex" : "none";
-      $("reclaimTotal").textContent = rep.suggestions.length
-        ? `${fmtBytes(rep.total_reclaimable)} reclaimable` : "";
-      if (!rep.suggestions.length) {
-        list.innerHTML = '<div class="empty">No reclaimable items — this location looks tidy.</div>';
+      const wrap = $("suggestList");
+      const max = rank(state.conf);
+      const sel = (rep.suggestions || []).filter((s) => rank(s.confidence) <= max);
+      const reclaimTotal = (rep.suggestions || []).reduce((a, s) => a + Number(s.size), 0);
+      $("navReclaim").textContent = rep.suggestions && rep.suggestions.length ? fmtBytes(reclaimTotal) : "—";
+      $("cleanCta").style.display = rep.suggestions && rep.suggestions.length ? "flex" : "none";
+      $("ctaTotal").textContent = fmtBytes(sel.reduce((a, s) => a + Number(s.size), 0));
+      if (!rep.suggestions || !rep.suggestions.length) {
+        wrap.innerHTML = '<div class="empty">No reclaimable items — this location looks tidy. ✨</div>';
         return;
       }
-      for (const s of rep.suggestions) {
-        const el = document.createElement("div");
-        el.className = "item";
-        el.innerHTML = `
-          <div class="row">
-            <span class="badge ${s.confidence}">${s.confidence}</span>
-            <span class="size">${fmtBytes(s.size)}</span>
+      wrap.innerHTML = sel.map((s) => `
+        <div class="card">
+          <div class="dot ${s.confidence}">${confIcon(s.confidence)}</div>
+          <div class="body">
+            <div class="title">${esc(s.title)} <span class="chip ${s.confidence}">${s.confidence.replace("-", " ")}</span></div>
+            <div class="path">${esc(s.path)}</div>
+            <div class="reason">${esc(s.reason)}</div>
           </div>
-          <div class="path">${esc(s.path)}</div>
-          <div class="reason">${esc(s.title)} — ${esc(s.reason)}</div>`;
-        list.appendChild(el);
-      }
+          <div class="sz">${fmtBytes(s.size)}</div>
+        </div>`).join("");
     }
-
-    async function doClean(minConfidence) {
-      if (!confirm(`Move ${minConfidence} items to reversible quarantine? You can restore them anytime.`)) return;
-      const btns = [$("cleanSafe"), $("cleanLikely")];
-      btns.forEach((b) => (b.disabled = true));
-      $("cleanSafe").textContent = "Cleaning…";
+    async function doClean() {
+      if (!confirm(`Move ${state.conf.replace("-", " ")} items to reversible quarantine? You can restore them anytime.`)) return;
+      const b = $("cleanBtn"); b.disabled = true; b.textContent = "Cleaning…";
       try {
-        const out = await invoke("clean_path", { path: pathVal(), minConfidence });
-        toast(`Quarantined ${out.moved} item(s), reclaimed ${fmtBytes(out.reclaimed)}.`);
-        await doAnalyze(); refreshGuard();
+        const out = await invoke("clean_path", { path: pathVal(), minConfidence: state.conf });
+        toast(`Quarantined ${out.moved} item(s) · reclaimed ${fmtBytes(out.reclaimed)}`);
+        await doAnalyzeSilently(); refreshGuard(); renderQuarantine();
       } catch (e) { toast("Clean failed: " + e); }
-      finally {
-        btns.forEach((b) => (b.disabled = false));
-        $("cleanSafe").textContent = "Clean safe items";
-      }
+      finally { b.disabled = false; b.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> Clean'; }
+    }
+    async function doAnalyzeSilently() {
+      try { const rep = await invoke("analyze_path", { path: pathVal() }); state.analysis = rep; renderSuggestions(rep); } catch (e) {}
     }
 
+    /* Quarantine ------------------------------------------------------- */
     async function renderQuarantine() {
-      const list = $("list");
-      $("cleanActions").style.display = "none";
+      const wrap = $("quarList");
       try {
         const items = await invoke("list_quarantine");
-        $("reclaimTotal").textContent = items.length
-          ? `${items.length} held` : "";
-        if (!items.length) { list.innerHTML = '<div class="empty">Quarantine is empty.</div>'; return; }
-        list.innerHTML = "";
-        for (const i of items) {
-          const el = document.createElement("div");
-          el.className = "item";
-          el.innerHTML = `
-            <div class="row">
-              <span class="size">${fmtBytes(i.size)}</span>
-              <span>
-                <button class="ghost" data-restore="${i.id}">Restore</button>
-                <button class="danger" data-purge="${i.id}">Purge</button>
-              </span>
+        $("navHeld").textContent = items.length;
+        if (!items.length) { wrap.innerHTML = '<div class="empty">Nothing in quarantine.</div>'; return; }
+        wrap.innerHTML = items.map((i) => `
+          <div class="card">
+            <div class="dot ${i.confidence || 'safe'}">${confIcon(i.confidence || 'safe')}</div>
+            <div class="body">
+              <div class="title">${esc((i.original_path.split(/[\\/]/).filter(Boolean).pop()) || i.original_path)}</div>
+              <div class="path">${esc(i.original_path)}</div>
+              <div class="reason">${esc(i.reason)}</div>
             </div>
-            <div class="path">${esc(i.original_path)}</div>
-            <div class="reason">${esc(i.reason)}</div>`;
-          list.appendChild(el);
-        }
-      } catch (e) { list.innerHTML = `<div class="empty">${e}</div>`; }
+            <div class="sz">${fmtBytes(i.size)}</div>
+            <div class="acts">
+              <button class="btn secondary" data-restore="${esc(i.id)}">Restore</button>
+              <button class="btn danger" data-purge="${esc(i.id)}">Purge</button>
+            </div>
+          </div>`).join("");
+      } catch (e) { wrap.innerHTML = `<div class="empty">${esc("" + e)}</div>`; }
     }
 
-    function setTab() {
-      $("tabSuggest").classList.toggle("active", view === "suggest");
-      $("tabQuarantine").classList.toggle("active", view === "quarantine");
-      if (view === "quarantine") {
-        renderQuarantine();
-      } else if (lastAnalysis) {
-        // Restore the suggestions view (list + clean actions + totals) that the
-        // quarantine tab overwrote.
-        renderSuggestions(lastAnalysis);
-      } else {
-        $("cleanActions").style.display = "none";
-        $("reclaimTotal").textContent = "";
-        $("list").innerHTML =
-          '<div class="empty">Press Analyze to get safe cleanup suggestions.</div>';
-      }
-    }
-
-    document.addEventListener("click", async (e) => {
-      const r = e.target.getAttribute?.("data-restore");
-      const p = e.target.getAttribute?.("data-purge");
-      if (r) { try { await invoke("restore_item", { id: r }); toast("Restored."); renderQuarantine(); refreshGuard(); } catch (err) { toast("" + err); } }
-      if (p) { if (confirm("Permanently delete this item? This cannot be undone.")) { try { await invoke("purge_item", { id: p }); toast("Purged."); renderQuarantine(); } catch (err) { toast("" + err); } } }
-    });
-
+    /* Wiring ----------------------------------------------------------- */
+    document.querySelectorAll(".nav-item").forEach((n) => n.addEventListener("click", () => setView(n.dataset.view)));
     $("scanBtn").onclick = doScan;
     $("analyzeBtn").onclick = doAnalyze;
-    $("cleanSafe").onclick = () => doClean("safe");
-    $("cleanLikely").onclick = () => doClean("likely-safe");
-    $("tabSuggest").onclick = () => { view = "suggest"; setTab(); };
-    $("tabQuarantine").onclick = () => { view = "quarantine"; setTab(); };
+    $("cleanBtn").onclick = doClean;
+    $("confSeg").addEventListener("click", (e) => {
+      const btn = e.target.closest("button"); if (!btn) return;
+      state.conf = btn.dataset.conf;
+      $("confSeg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === btn));
+      if (state.analysis) renderSuggestions(state.analysis);
+    });
+    document.addEventListener("click", async (e) => {
+      const r = e.target.getAttribute?.("data-restore"), p = e.target.getAttribute?.("data-purge");
+      if (r) { try { await invoke("restore_item", { id: r }); toast("Restored to original location."); renderQuarantine(); refreshGuard(); } catch (err) { toast("" + err); } }
+      if (p) { if (confirm("Permanently delete this item? This cannot be undone.")) { try { await invoke("purge_item", { id: p }); toast("Purged permanently."); renderQuarantine(); } catch (err) { toast("" + err); } } }
+    });
+    $("themeBtn").onclick = () => {
+      const cur = document.documentElement.getAttribute("data-theme");
+      const isDark = cur ? cur === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.setAttribute("data-theme", isDark ? "light" : "dark");
+    };
 
-    // Initial disk readout for the default path.
     refreshGuard();
   </script>
 </body>
