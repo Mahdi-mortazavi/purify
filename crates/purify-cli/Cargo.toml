@@ -1,6 +1,8 @@
 [package]
 name = "purify-cli"
 description = "Command-line interface for purify — fast, safe, reversible disk cleanup and organization."
+# Binary crate — not published to crates.io. Keeps path deps legal.
+publish = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

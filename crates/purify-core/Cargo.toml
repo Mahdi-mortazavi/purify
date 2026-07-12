@@ -1,6 +1,8 @@
 [package]
 name = "purify-core"
 description = "Pure-Rust core engine for purify: data models, scanning traits, rule engine, and quarantine logic."
+# Internal crate — not published to crates.io (yet). Keeps path deps legal.
+publish = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

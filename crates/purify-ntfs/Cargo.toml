@@ -1,6 +1,8 @@
 [package]
 name = "purify-ntfs"
 description = "Isolated raw NTFS/volume access for purify. The ONLY crate permitted to use unsafe, confined to opening a volume handle and reading raw sectors."
+# Internal crate — not published to crates.io (yet). Keeps path deps legal.
+publish = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
