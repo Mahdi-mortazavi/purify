@@ -1,0 +1,30 @@
+[package]
+name = "purify-cli"
+description = "Command-line interface for purify — fast, safe, reversible disk cleanup and organization."
+# Binary crate — not published to crates.io. Keeps path deps legal.
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[[bin]]
+name = "purify"
+path = "src/main.rs"
+
+[dependencies]
+purify-core.workspace = true
+purify-ntfs.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

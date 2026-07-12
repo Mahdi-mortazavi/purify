@@ -1,0 +1,58 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/purify-core",
+    "crates/purify-ntfs",
+    "crates/purify-cli",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+authors = ["Mahdi Mortazavi"]
+repository = "https://github.com/mahdi-mortazavi/purify"
+homepage = "https://github.com/mahdi-mortazavi/purify"
+readme = "README.md"
+keywords = ["disk", "cleanup", "ntfs", "windows", "storage"]
+categories = ["command-line-utilities", "filesystem"]
+
+# Non-negotiable safety default across the whole workspace.
+# `purify-ntfs` is the ONLY crate allowed to opt back into unsafe, and it does
+# so explicitly in its own manifest with a documented rationale.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+# We want production paths to be panic-free. These lints surface accidental
+# panic points in review instead of at runtime on a user's machine.
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+
+[workspace.dependencies]
+# Shared, version-pinned once so every crate stays in lockstep.
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+clap = { version = "4", features = ["derive"] }
+
+# Internal crates
+purify-core = { path = "crates/purify-core" }
+purify-ntfs = { path = "crates/purify-ntfs" }
+
+[profile.release]
+# Optimize for a small, fast single-file binary — this is a utility users
+# download and run, not a library. LTO + one codegen unit trades compile time
+# for runtime speed and size, which is the right call for release artifacts.
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"
