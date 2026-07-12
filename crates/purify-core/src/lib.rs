@@ -13,9 +13,10 @@
 //! - [`usage`] — disk-usage aggregation into a [`usage::UsageReport`].
 //! - [`rules`] — the cleanup rule engine and TOML signatures.
 //! - [`suggest`] — cleanup suggestions with confidence levels.
+//! - [`quarantine`] — reversible, metadata-tracked file quarantine.
 //! - [`safety`] — protected-path guards shared across the engine.
 //!
-//! Later phases add `quarantine`, `organize`, and `guardian` modules.
+//! Later phases add `organize` and `guardian` modules.
 
 // The workspace forbids `unwrap`/`expect`/`panic` on production paths. Test
 // code legitimately uses them for assertions, so relax the lints under `test`.
@@ -23,6 +24,7 @@
 
 pub mod error;
 pub mod model;
+pub mod quarantine;
 pub mod rules;
 pub mod safety;
 pub mod scan;
@@ -31,6 +33,7 @@ pub mod usage;
 
 pub use error::{Error, Result};
 pub use model::FileEntry;
+pub use quarantine::{ItemStatus, QuarantineItem, QuarantineRequest, QuarantineStore};
 pub use rules::{Confidence, MatchRule, Signature, SignatureSet};
 pub use scan::{Scanner, WalkScanner};
 pub use suggest::{AnalysisReport, Analyzer, Suggestion};

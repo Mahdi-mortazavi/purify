@@ -800,6 +800,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "clap",
+ "dirs",
  "purify-core",
  "purify-ntfs",
  "serde_json",

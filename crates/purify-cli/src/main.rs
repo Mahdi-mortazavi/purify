@@ -6,12 +6,36 @@ use anyhow::Context;
 use clap::{Parser, Subcommand};
 use purify_core::scan::Scanner;
 use purify_core::{
-    format_bytes, AnalysisReport, Analyzer, FileEntry, SignatureSet, UsageCollector, UsageReport,
-    WalkScanner,
+    format_bytes, AnalysisReport, Analyzer, Confidence, FileEntry, ItemStatus, QuarantineRequest,
+    QuarantineStore, SignatureSet, Suggestion, UsageCollector, UsageReport, WalkScanner,
 };
 use purify_ntfs::MftScanner;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
+
+/// Default retention window (days) before a quarantined item may be purged.
+const DEFAULT_RETENTION_DAYS: u32 = 30;
+
+/// Confidence tiers selectable on the command line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+enum ConfidenceArg {
+    /// Only items regenerated automatically with zero user impact.
+    Safe,
+    /// Safe plus near-certain items (e.g. old installers).
+    LikelySafe,
+    /// Everything, including items the user should review.
+    ReviewNeeded,
+}
+
+impl ConfidenceArg {
+    fn as_core(self) -> Confidence {
+        match self {
+            ConfidenceArg::Safe => Confidence::Safe,
+            ConfidenceArg::LikelySafe => Confidence::LikelySafe,
+            ConfidenceArg::ReviewNeeded => Confidence::ReviewNeeded,
+        }
+    }
+}
 
 /// Fast, safe, reversible disk cleanup and organization for Windows.
 #[derive(Debug, Parser)]
@@ -35,10 +59,24 @@ enum Command {
 
     /// Analyze a path and suggest safe-to-reclaim files with confidence levels.
     ///
-    /// Read-only: this only *suggests*. Nothing is moved or deleted. Use the
-    /// (upcoming) `clean` command to act on suggestions via reversible
-    /// quarantine.
+    /// Read-only: this only *suggests*. Nothing is moved or deleted. Use
+    /// `clean` to act on suggestions via reversible quarantine.
     Analyze(AnalyzeArgs),
+
+    /// Clean a path by moving suggested items into reversible quarantine.
+    ///
+    /// DRY-RUN BY DEFAULT: without `--apply` it only prints the plan. Nothing
+    /// is ever deleted — items move to quarantine and can be restored.
+    Clean(CleanArgs),
+
+    /// List items currently held in quarantine.
+    List,
+
+    /// Restore a quarantined item to its original location.
+    Restore(RestoreArgs),
+
+    /// Permanently purge quarantined items (expired ones, or a specific id).
+    Purge(PurgeArgs),
 }
 
 #[derive(Debug, clap::Args)]
@@ -76,6 +114,46 @@ struct AnalyzeArgs {
     signatures: Option<PathBuf>,
 }
 
+#[derive(Debug, clap::Args)]
+struct CleanArgs {
+    /// Path to clean.
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Actually move items to quarantine. Without this flag it is a dry run.
+    #[arg(long)]
+    apply: bool,
+
+    /// Lowest confidence tier to act on (higher tiers are always included).
+    #[arg(long, value_enum, default_value_t = ConfidenceArg::Safe)]
+    min_confidence: ConfidenceArg,
+
+    /// Load additional community signatures from this directory (*.toml).
+    #[arg(long, value_name = "DIR")]
+    signatures: Option<PathBuf>,
+}
+
+#[derive(Debug, clap::Args)]
+struct RestoreArgs {
+    /// The quarantine item id (see `purify list`).
+    id: String,
+}
+
+#[derive(Debug, clap::Args)]
+struct PurgeArgs {
+    /// Purge a specific item id instead of expired ones.
+    #[arg(long)]
+    id: Option<String>,
+
+    /// Purge items quarantined more than this many days ago.
+    #[arg(long, default_value_t = DEFAULT_RETENTION_DAYS)]
+    older_than: u32,
+
+    /// Required confirmation — purging is permanent and irreversible.
+    #[arg(long)]
+    yes: bool,
+}
+
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     init_tracing(cli.verbose);
@@ -83,7 +161,30 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Command::Scan(args) => run_scan(args),
         Command::Analyze(args) => run_analyze(args),
+        Command::Clean(args) => run_clean(args),
+        Command::List => run_list(),
+        Command::Restore(args) => run_restore(args),
+        Command::Purge(args) => run_purge(args),
     }
+}
+
+/// Current time as Unix seconds (0 if the clock is before the epoch).
+fn now_unix() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+/// Open the default per-user quarantine store (DB + blob area under the
+/// platform data directory).
+fn open_store() -> anyhow::Result<QuarantineStore> {
+    let base = dirs::data_dir()
+        .unwrap_or_else(std::env::temp_dir)
+        .join("purify");
+    let db = base.join("quarantine.db");
+    let blobs = base.join("quarantine");
+    QuarantineStore::open(&db, &blobs).context("opening quarantine store")
 }
 
 /// Configure structured logging. Verbosity flags raise the level; `RUST_LOG`
@@ -218,6 +319,206 @@ fn print_analysis(report: &AnalysisReport, root: &Path) {
     );
     println!("  (read-only: nothing was moved or deleted)");
     println!();
+}
+
+fn run_clean(args: CleanArgs) -> anyhow::Result<()> {
+    let root = std::path::absolute(&args.path).unwrap_or(args.path.clone());
+    if !root.exists() {
+        anyhow::bail!("clean target does not exist: {}", root.display());
+    }
+
+    let mut signatures = SignatureSet::builtin();
+    if let Some(dir) = &args.signatures {
+        let extra = SignatureSet::load_dir(dir)
+            .with_context(|| format!("loading signatures from {}", dir.display()))?;
+        signatures.signatures.extend(extra.signatures);
+    }
+
+    let mut entries: Vec<FileEntry> = Vec::new();
+    WalkScanner::new()
+        .scan(&root, &mut |e| entries.push(e))
+        .with_context(|| format!("scanning {}", root.display()))?;
+
+    let report = Analyzer::new(signatures).analyze(&entries, now_unix());
+    let max_rank = args.min_confidence.as_core().rank();
+    let selected: Vec<&Suggestion> = report
+        .suggestions
+        .iter()
+        .filter(|s| label_rank(&s.confidence) <= max_rank)
+        .collect();
+
+    println!();
+    println!("  purify clean — {}", root.display());
+    if selected.is_empty() {
+        println!(
+            "  Nothing to clean at or below '{}'.",
+            args.min_confidence.as_core().label()
+        );
+        println!();
+        return Ok(());
+    }
+
+    let total: u64 = selected.iter().map(|s| s.size).sum();
+
+    if !args.apply {
+        println!("  DRY RUN — the following would move to quarantine:");
+        println!();
+        for s in &selected {
+            println!(
+                "    {:>10}  [{}]  {}",
+                format_bytes(s.size),
+                s.confidence,
+                s.path.display()
+            );
+        }
+        println!();
+        println!(
+            "  Would reclaim {} across {} items.",
+            format_bytes(total),
+            selected.len()
+        );
+        println!("  Re-run with --apply to move these to reversible quarantine.");
+        println!();
+        return Ok(());
+    }
+
+    let store = open_store()?;
+    let now = now_unix();
+    let mut moved = 0u64;
+    let mut reclaimed = 0u64;
+    for s in &selected {
+        let req = QuarantineRequest {
+            original_path: s.path.clone(),
+            size: s.size,
+            is_dir: s.is_dir,
+            reason: s.reason.clone(),
+            signature_id: Some(s.signature_id.clone()),
+            confidence: Some(s.confidence.clone()),
+        };
+        match store.quarantine(&req, now) {
+            Ok(item) => {
+                moved += 1;
+                reclaimed += s.size;
+                println!("    quarantined {}  ({})", s.path.display(), item.id);
+            }
+            Err(err) => {
+                tracing::warn!(path = %s.path.display(), %err, "skipping item");
+                println!("    skipped {} — {}", s.path.display(), err);
+            }
+        }
+    }
+    println!();
+    println!(
+        "  Moved {moved} items ({}) to quarantine. Restore any with `purify restore <id>`.",
+        format_bytes(reclaimed)
+    );
+    println!(
+        "  They will remain restorable until purged (default retention {DEFAULT_RETENTION_DAYS} days)."
+    );
+    println!();
+    Ok(())
+}
+
+fn run_list() -> anyhow::Result<()> {
+    let store = open_store()?;
+    let items = store.list(None).context("listing quarantine")?;
+    let active: Vec<_> = items
+        .iter()
+        .filter(|i| i.status == ItemStatus::Quarantined)
+        .collect();
+
+    println!();
+    if active.is_empty() {
+        println!("  Quarantine is empty.");
+        println!();
+        return Ok(());
+    }
+    println!("  Quarantined items:");
+    println!();
+    let now = now_unix();
+    for i in &active {
+        let age_days = (now.saturating_sub(i.quarantined_at)) / 86_400;
+        println!(
+            "    {}  {:>10}  [{}]  {}",
+            i.id,
+            format_bytes(i.size),
+            i.confidence.as_deref().unwrap_or("?"),
+            i.original_path.display()
+        );
+        println!("      └─ quarantined {age_days}d ago — {}", i.reason);
+    }
+    println!();
+    let total: u64 = active.iter().map(|i| i.size).sum();
+    println!("  {} items, {} held.", active.len(), format_bytes(total));
+    println!();
+    Ok(())
+}
+
+fn run_restore(args: RestoreArgs) -> anyhow::Result<()> {
+    let store = open_store()?;
+    let item = store.get(&args.id).context("looking up item")?;
+    store
+        .restore(&args.id)
+        .with_context(|| format!("restoring {}", args.id))?;
+    println!("Restored {} to {}", args.id, item.original_path.display());
+    Ok(())
+}
+
+fn run_purge(args: PurgeArgs) -> anyhow::Result<()> {
+    let store = open_store()?;
+
+    if let Some(id) = args.id {
+        let item = store.get(&id).context("looking up item")?;
+        if !args.yes {
+            println!(
+                "Would permanently delete {} ({}). Re-run with --yes to confirm.",
+                id,
+                item.original_path.display()
+            );
+            return Ok(());
+        }
+        store.purge(&id).with_context(|| format!("purging {id}"))?;
+        println!("Purged {id} permanently.");
+        return Ok(());
+    }
+
+    // Expired-purge mode.
+    let now = now_unix();
+    let cutoff = now.saturating_sub(i64::from(args.older_than) * 86_400);
+    let candidates: Vec<_> = store
+        .list(Some(ItemStatus::Quarantined))?
+        .into_iter()
+        .filter(|i| i.quarantined_at <= cutoff)
+        .collect();
+
+    if candidates.is_empty() {
+        println!("No quarantined items older than {} days.", args.older_than);
+        return Ok(());
+    }
+    if !args.yes {
+        println!(
+            "Would permanently purge {} item(s) older than {} days:",
+            candidates.len(),
+            args.older_than
+        );
+        for i in &candidates {
+            println!("  {}  {}", i.id, i.original_path.display());
+        }
+        println!("Re-run with --yes to confirm.");
+        return Ok(());
+    }
+    let purged = store.purge_expired(args.older_than, now)?;
+    println!("Purged {} expired item(s) permanently.", purged.len());
+    Ok(())
+}
+
+/// Rank a confidence label (lower = safer).
+fn label_rank(label: &str) -> u8 {
+    match label {
+        "safe" => 0,
+        "likely-safe" => 1,
+        _ => 2,
+    }
 }
 
 fn print_report(report: &UsageReport, strategy: &str) {
