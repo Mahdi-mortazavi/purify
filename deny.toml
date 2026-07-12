@@ -25,7 +25,12 @@ confidence-threshold = 0.9
 
 [bans]
 multiple-versions = "warn"
+# Deny real wildcard ("*") version requirements on crates.io dependencies...
 wildcards = "deny"
+# ...but allow our own workspace-internal path dependencies, which are
+# intentionally versionless (`{ path = "..." }`) and would otherwise be
+# misreported as wildcards.
+allow-wildcard-paths = true
 
 [sources]
 unknown-registry = "deny"
