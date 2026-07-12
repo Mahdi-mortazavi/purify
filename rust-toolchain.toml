@@ -1,0 +1,4 @@
+[toolchain]
+# Pin to stable so contributors and CI build identically. Bump deliberately.
+channel = "stable"
+components = ["rustfmt", "clippy"]

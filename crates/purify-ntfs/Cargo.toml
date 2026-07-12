@@ -1,0 +1,41 @@
+[package]
+name = "purify-ntfs"
+description = "Isolated raw NTFS/volume access for purify. The ONLY crate permitted to use unsafe, confined to opening a volume handle and reading raw sectors."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+purify-core.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+# Windows-only: raw volume access and NTFS structure parsing.
+# The `ntfs` crate parses MFT records without unsafe, so our own unsafe surface
+# stays confined to opening `\\.\C:` and reading raw sectors via `windows`.
+[target.'cfg(windows)'.dependencies]
+# Uncommented and wired up in Phase 1; declared here to document intent.
+# ntfs = "0.4"
+# windows = { version = "0.58", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_System_IO"] }
+
+# This crate deliberately does NOT inherit the workspace lint table, because it
+# is the single sanctioned home for `unsafe`. Every other lint is mirrored;
+# only `unsafe_code` is relaxed from `forbid` to `deny` with per-block
+# `#[allow(unsafe_code)]` + a `// SAFETY:` comment required at each use site.
+[lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+
+[lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+undocumented_unsafe_blocks = "warn"

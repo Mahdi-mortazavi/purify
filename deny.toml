@@ -1,0 +1,32 @@
+# cargo-deny configuration.
+# Guards a core product promise: no telemetry, no surprise dependencies, and
+# only permissive licenses compatible with our MIT distribution.
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+# Only permissive licenses. A copyleft dependency would compromise the
+# "MIT or Apache-2.0" promise, so it must fail CI, not slip through.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "MPL-2.0",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
