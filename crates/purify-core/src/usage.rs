@@ -111,9 +111,62 @@ impl UsageCollector {
     }
 }
 
+/// An index of every directory's recursive byte size, built from a scan.
+///
+/// Used by the rule engine to size a matched directory (e.g. a `node_modules`
+/// folder) without re-walking it. Each file contributes its size to every one
+/// of its ancestor directories exactly once, so a lookup returns the total
+/// bytes beneath a directory.
+#[derive(Debug, Default)]
+pub struct DirSizeIndex {
+    sizes: HashMap<PathBuf, u64>,
+}
+
+impl DirSizeIndex {
+    /// Build the index from a full list of scanned entries.
+    #[must_use]
+    pub fn build(entries: &[FileEntry]) -> Self {
+        let mut sizes: HashMap<PathBuf, u64> = HashMap::new();
+        for entry in entries {
+            if entry.is_dir || entry.size == 0 {
+                continue;
+            }
+            // Attribute this file's bytes to each ancestor directory.
+            for ancestor in entry.path.ancestors().skip(1) {
+                if ancestor.as_os_str().is_empty() {
+                    continue;
+                }
+                *sizes.entry(ancestor.to_path_buf()).or_insert(0) += entry.size;
+            }
+        }
+        Self { sizes }
+    }
+
+    /// Total bytes stored beneath `dir` (0 if unknown).
+    #[must_use]
+    pub fn size_of(&self, dir: &Path) -> u64 {
+        self.sizes.get(dir).copied().unwrap_or(0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dir_size_index_sums_descendants() {
+        let entries = vec![
+            FileEntry::file("/root/a/b/one.bin", 1000),
+            FileEntry::file("/root/a/b/two.bin", 200),
+            FileEntry::file("/root/a/three.bin", 50),
+            FileEntry::dir("/root/a"),
+        ];
+        let idx = DirSizeIndex::build(&entries);
+        assert_eq!(idx.size_of(Path::new("/root/a/b")), 1200);
+        assert_eq!(idx.size_of(Path::new("/root/a")), 1250);
+        assert_eq!(idx.size_of(Path::new("/root")), 1250);
+        assert_eq!(idx.size_of(Path::new("/nonexistent")), 0);
+    }
 
     #[test]
     fn attributes_bytes_to_immediate_children() {

@@ -5,7 +5,10 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use purify_core::scan::Scanner;
-use purify_core::{format_bytes, UsageCollector, UsageReport, WalkScanner};
+use purify_core::{
+    format_bytes, AnalysisReport, Analyzer, FileEntry, SignatureSet, UsageCollector, UsageReport,
+    WalkScanner,
+};
 use purify_ntfs::MftScanner;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -29,6 +32,13 @@ enum Command {
     /// Read-only: never modifies disk. Uses direct NTFS MFT reads when
     /// available (Windows + admin) and requested, otherwise a portable walk.
     Scan(ScanArgs),
+
+    /// Analyze a path and suggest safe-to-reclaim files with confidence levels.
+    ///
+    /// Read-only: this only *suggests*. Nothing is moved or deleted. Use the
+    /// (upcoming) `clean` command to act on suggestions via reversible
+    /// quarantine.
+    Analyze(AnalyzeArgs),
 }
 
 #[derive(Debug, clap::Args)]
@@ -51,12 +61,28 @@ struct ScanArgs {
     json: bool,
 }
 
+#[derive(Debug, clap::Args)]
+struct AnalyzeArgs {
+    /// Path to analyze (e.g. `C:\\Users\\me` or a Downloads folder).
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Emit suggestions as JSON instead of a human-readable table.
+    #[arg(long)]
+    json: bool,
+
+    /// Load additional community signatures from this directory (*.toml).
+    #[arg(long, value_name = "DIR")]
+    signatures: Option<PathBuf>,
+}
+
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     init_tracing(cli.verbose);
 
     match cli.command {
         Command::Scan(args) => run_scan(args),
+        Command::Analyze(args) => run_analyze(args),
     }
 }
 
@@ -121,6 +147,77 @@ fn collect(root: &Path, top: usize, scanner: &dyn Scanner) -> anyhow::Result<Usa
     let mut collector = UsageCollector::new(root);
     scanner.scan(root, &mut |entry| collector.record(&entry))?;
     Ok(collector.into_report(top))
+}
+
+fn run_analyze(args: AnalyzeArgs) -> anyhow::Result<()> {
+    let root = std::path::absolute(&args.path).unwrap_or(args.path.clone());
+    if !root.exists() {
+        anyhow::bail!("analyze target does not exist: {}", root.display());
+    }
+
+    // Load signatures: the embedded defaults plus any user-supplied directory.
+    let mut signatures = SignatureSet::builtin();
+    if let Some(dir) = &args.signatures {
+        let extra = SignatureSet::load_dir(dir)
+            .with_context(|| format!("loading signatures from {}", dir.display()))?;
+        info!(count = extra.len(), "loaded extra signatures");
+        signatures.signatures.extend(extra.signatures);
+    }
+
+    // Collect the full entry list (analyze needs it for directory sizing and
+    // age-based rules). The portable walker provides modification times.
+    let mut entries: Vec<FileEntry> = Vec::new();
+    WalkScanner::new()
+        .scan(&root, &mut |e| entries.push(e))
+        .with_context(|| format!("scanning {}", root.display()))?;
+
+    let now_unix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+
+    let report = Analyzer::new(signatures).analyze(&entries, now_unix);
+
+    if args.json {
+        let json = serde_json::to_string_pretty(&report).context("serializing analysis")?;
+        println!("{json}");
+    } else {
+        print_analysis(&report, &root);
+    }
+    Ok(())
+}
+
+fn print_analysis(report: &AnalysisReport, root: &Path) {
+    use purify_core::Confidence;
+    println!();
+    println!("  purify analyze — {}", root.display());
+    println!();
+    if report.suggestions.is_empty() {
+        println!("  No reclaimable items matched. Your drive looks tidy here.");
+        println!();
+        return;
+    }
+
+    for s in &report.suggestions {
+        let kind = if s.is_dir { "dir " } else { "file" };
+        println!(
+            "  [{:>13}] {:>10}  {} ({})",
+            s.confidence,
+            format_bytes(s.size),
+            s.path.display(),
+            kind
+        );
+        println!("                 └─ {} — {}", s.title, s.reason);
+    }
+    println!();
+    println!(
+        "  Reclaimable — safe: {}   ≤ likely-safe: {}   total: {}",
+        format_bytes(report.reclaimable_up_to(Confidence::Safe)),
+        format_bytes(report.reclaimable_up_to(Confidence::LikelySafe)),
+        format_bytes(report.total_reclaimable),
+    );
+    println!("  (read-only: nothing was moved or deleted)");
+    println!();
 }
 
 fn print_report(report: &UsageReport, strategy: &str) {

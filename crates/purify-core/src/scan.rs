@@ -89,7 +89,14 @@ impl Scanner for WalkScanner {
                 // `metadata()` may fail for a file that vanished mid-scan or
                 // that we lack permission to stat; skip it rather than abort.
                 match entry.metadata() {
-                    Ok(meta) => sink(FileEntry::file(path, meta.len())),
+                    Ok(meta) => {
+                        let modified = meta
+                            .modified()
+                            .ok()
+                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                            .map(|d| d.as_secs() as i64);
+                        sink(FileEntry::file(path, meta.len()).with_modified(modified));
+                    }
                     Err(err) => {
                         tracing::warn!(path = %path.display(), %err, "skipping file with unreadable metadata");
                     }

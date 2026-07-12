@@ -1,0 +1,83 @@
+# Windows-generated clutter. These are the biggest reliable wins on a full C:
+# drive. We deliberately do NOT touch the registry, WinSxS internals, or the
+# pagefile/hiberfil — those are handled by the OS, not by moving files.
+
+[[signature]]
+id = "windows-temp"
+title = "Temporary files"
+category = "system-temp"
+confidence = "safe"
+description = "Files in the user TEMP folder. Safe to clear; apps recreate what they need."
+match = { kind = "path-contains", needle = "\\AppData\\Local\\Temp" }
+
+[[signature]]
+id = "windows-update-download"
+title = "Windows Update download cache"
+category = "windows-update"
+confidence = "likely-safe"
+description = "Downloaded update payloads under SoftwareDistribution. Re-downloaded if an update needs them again."
+match = { kind = "path-contains", needle = "\\SoftwareDistribution\\Download" }
+
+[[signature]]
+id = "delivery-optimization"
+title = "Delivery Optimization files"
+category = "windows-update"
+confidence = "likely-safe"
+description = "Peer-to-peer update cache. Reclaimable; Windows re-fetches as needed."
+match = { kind = "path-contains", needle = "\\DeliveryOptimization" }
+
+[[signature]]
+id = "thumbnail-cache"
+title = "Thumbnail cache"
+category = "system-cache"
+confidence = "safe"
+description = "Explorer thumbnail database. Regenerated automatically when you browse folders."
+match = { kind = "path-contains", needle = "\\Explorer\\thumbcache" }
+
+[[signature]]
+id = "icon-cache"
+title = "Icon cache"
+category = "system-cache"
+confidence = "safe"
+description = "Explorer icon cache database. Regenerated automatically."
+match = { kind = "path-contains", needle = "\\Explorer\\iconcache" }
+
+[[signature]]
+id = "prefetch"
+title = "Prefetch data"
+category = "system-cache"
+confidence = "safe"
+description = "Boot/app launch prefetch traces. Rebuilt by Windows within a few launches."
+match = { kind = "path-contains", needle = "\\Windows\\Prefetch" }
+
+[[signature]]
+id = "crash-dumps"
+title = "Crash dump files"
+category = "diagnostics"
+confidence = "safe"
+description = "Application and system crash dumps. Only useful for debugging a specific past crash."
+match = { kind = "glob", patterns = ["*.dmp"], within = "\\CrashDumps" }
+
+[[signature]]
+id = "windows-error-reporting"
+title = "Windows Error Reporting queue"
+category = "diagnostics"
+confidence = "safe"
+description = "Queued error reports under WER. Safe to clear."
+match = { kind = "path-contains", needle = "\\Microsoft\\Windows\\WER" }
+
+[[signature]]
+id = "windows-old"
+title = "Previous Windows installation (Windows.old)"
+category = "windows-update"
+confidence = "review-needed"
+description = "The prior Windows version kept after a feature update, used for rollback. Large; reclaimable once you're sure you won't roll back."
+match = { kind = "path-contains", needle = "\\Windows.old" }
+
+[[signature]]
+id = "recycle-bin"
+title = "Recycle Bin contents"
+category = "system-temp"
+confidence = "likely-safe"
+description = "Files already sent to the Recycle Bin. Reclaimable once you no longer need them."
+match = { kind = "path-contains", needle = "\\$Recycle.Bin" }

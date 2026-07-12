@@ -1,0 +1,26 @@
+# Downloads-folder clutter. Installers and archives pile up here and are almost
+# never needed again once the software is installed.
+
+[[signature]]
+id = "old-installers"
+title = "Old installers in Downloads"
+category = "downloads"
+confidence = "likely-safe"
+description = "Setup executables and packages in Downloads older than 90 days. The installed apps don't need them."
+match = { kind = "glob", patterns = ["*.msi", "*.exe"], within = "\\Downloads\\", min_age_days = 90 }
+
+[[signature]]
+id = "old-archives"
+title = "Old archives in Downloads"
+category = "downloads"
+confidence = "review-needed"
+description = "Zip/7z/rar archives in Downloads older than 120 days. Reclaimable if you've already extracted what you need."
+match = { kind = "glob", patterns = ["*.zip", "*.7z", "*.rar"], within = "\\Downloads\\", min_age_days = 120 }
+
+[[signature]]
+id = "old-disk-images"
+title = "Old disk images in Downloads"
+category = "downloads"
+confidence = "review-needed"
+description = "ISO/IMG disk images in Downloads older than 120 days. Often large and rarely needed after use."
+match = { kind = "glob", patterns = ["*.iso", "*.img"], within = "\\Downloads\\", min_age_days = 120 }

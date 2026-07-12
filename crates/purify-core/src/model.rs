@@ -16,6 +16,12 @@ pub struct FileEntry {
     pub size: u64,
     /// Whether the entry is a directory.
     pub is_dir: bool,
+    /// Last-modified time as a Unix timestamp in seconds, if known.
+    ///
+    /// Populated by the portable walker; the MFT scanner leaves it `None` for
+    /// now, so age-based rules currently rely on the walker.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modified: Option<i64>,
 }
 
 impl FileEntry {
@@ -26,6 +32,7 @@ impl FileEntry {
             path: path.into(),
             size,
             is_dir: false,
+            modified: None,
         }
     }
 
@@ -36,7 +43,15 @@ impl FileEntry {
             path: path.into(),
             size: 0,
             is_dir: true,
+            modified: None,
         }
+    }
+
+    /// Set the last-modified timestamp (builder style).
+    #[must_use]
+    pub fn with_modified(mut self, modified: Option<i64>) -> Self {
+        self.modified = modified;
+        self
     }
 
     /// The file extension in lowercase, if any (without the leading dot).

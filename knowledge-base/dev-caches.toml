@@ -1,0 +1,90 @@
+# Developer tool caches. All are regenerated automatically on next use, so the
+# only cost of reclaiming them is a one-time re-download/re-build.
+
+[[signature]]
+id = "npm-cache"
+title = "npm cache"
+category = "dev-cache"
+confidence = "safe"
+description = "npm's global package cache. Rebuilt automatically on the next install."
+match = { kind = "path-contains", needle = "\\npm-cache" }
+
+[[signature]]
+id = "yarn-cache"
+title = "Yarn cache"
+category = "dev-cache"
+confidence = "safe"
+description = "Yarn's global package cache. Repopulated on the next install."
+match = { kind = "path-contains", needle = "\\Yarn\\Cache" }
+
+[[signature]]
+id = "pip-cache"
+title = "pip cache"
+category = "dev-cache"
+confidence = "safe"
+description = "Python pip's HTTP/wheel cache. Rebuilt on the next install."
+match = { kind = "path-contains", needle = "\\pip\\Cache" }
+
+[[signature]]
+id = "cargo-registry-cache"
+title = "Cargo registry cache"
+category = "dev-cache"
+confidence = "safe"
+description = "Downloaded crate sources and archives under .cargo. Re-fetched on demand."
+match = { kind = "path-contains", needle = "\\.cargo\\registry\\cache" }
+
+[[signature]]
+id = "go-build-cache"
+title = "Go build cache"
+category = "dev-cache"
+confidence = "safe"
+description = "Go's compiler build cache. Regenerated on the next build."
+match = { kind = "path-contains", needle = "\\go-build" }
+
+[[signature]]
+id = "gradle-cache"
+title = "Gradle cache"
+category = "dev-cache"
+confidence = "safe"
+description = "Gradle's downloaded dependencies and build cache under .gradle/caches."
+match = { kind = "path-contains", needle = "\\.gradle\\caches" }
+
+[[signature]]
+id = "maven-repository"
+title = "Maven local repository"
+category = "dev-cache"
+confidence = "likely-safe"
+description = "Locally cached Maven artifacts under .m2. Re-downloaded on the next build."
+match = { kind = "path-contains", needle = "\\.m2\\repository" }
+
+[[signature]]
+id = "nuget-cache"
+title = "NuGet package cache"
+category = "dev-cache"
+confidence = "safe"
+description = "NuGet's global package cache. Restored automatically on the next build."
+match = { kind = "path-contains", needle = "\\.nuget\\packages" }
+
+[[signature]]
+id = "node-modules"
+title = "node_modules folders"
+category = "dev-cache"
+confidence = "review-needed"
+description = "Reinstallable dependency folders. Safe to reclaim for archived projects; run `npm install` to restore."
+match = { kind = "dir-name", name = "node_modules" }
+
+[[signature]]
+id = "python-pycache"
+title = "Python __pycache__ folders"
+category = "dev-cache"
+confidence = "safe"
+description = "Compiled Python bytecode. Regenerated automatically when code runs."
+match = { kind = "dir-name", name = "__pycache__" }
+
+[[signature]]
+id = "rust-target"
+title = "Rust target directories"
+category = "dev-cache"
+confidence = "review-needed"
+description = "Cargo build output. Reclaimable for idle projects; `cargo build` regenerates it."
+match = { kind = "dir-name", name = "target" }
