@@ -1,153 +1,90 @@
 # purify
 
-**An ultra-fast, intelligent disk cleanup and organization utility for Windows,
-built in Rust.** Reclaim space on your C: drive and tame file clutter — with
-zero fear, because every action is 100% reversible.
+<div align="center">
 
-purify closes the full loop that other tools leave open —
-**understand → decide → act safely → prevent** — on one non-negotiable
-foundation: **nothing is ever deleted directly.**
+**See what is filling your disk. Reclaim it without fear.**
 
----
+Fast, private and reversible disk cleanup for Windows — built with Rust and Tauri.
 
-## Why purify
+[![CI](https://github.com/Mahdi-mortazavi/purify/actions/workflows/ci.yml/badge.svg)](https://github.com/Mahdi-mortazavi/purify/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/Mahdi-mortazavi/purify?sort=semver&color=0a84ff)](https://github.com/Mahdi-mortazavi/purify/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-34c759.svg)](LICENSE)
+[![English](https://img.shields.io/badge/docs-English-0a84ff)](README.md)
+[![فارسی](https://img.shields.io/badge/docs-فارسی-5e5ce6)](README.fa.md)
 
-Every existing tool solves only part of the problem:
+[Download for Windows](https://github.com/Mahdi-mortazavi/purify/releases/latest) · [Report a bug](https://github.com/Mahdi-mortazavi/purify/issues/new) · [Contribute](CONTRIBUTING.md)
 
-| Tool | Shows disk | Decides what's safe | Reversible | Organizes | Open source |
-|------|:---------:|:-------------------:|:----------:|:---------:|:-----------:|
-| WinDirStat / WizTree | ✅ | ❌ | — | ❌ | ~ |
-| BleachBit / CCleaner | ❌ | ~ | ❌ | ❌ | ~ |
-| Czkawka | ~ | ❌ | ❌ | ❌ | ✅ |
-| **purify** | ✅ | ✅ **with confidence levels** | ✅ **quarantine + undo** | ✅ | ✅ MIT |
+</div>
 
-## Features
+Your drive is full. The usual tools either show you a wall of folders or ask you to delete files you cannot identify. **purify closes that gap:** understand what is large, decide what is safe, move it to a reversible quarantine, and keep the next cleanup from becoming a fire drill.
 
-- **See your disk in seconds** — a direct NTFS MFT scanner (with a portable
-  fallback) shows the biggest space consumers as a ranked list or interactive
-  treemap.
-- **Know what's safe to delete** — 30+ built-in signatures detect dev caches,
-  browser/app caches, Windows update leftovers, old installers, and more, each
-  tagged **Safe / Likely-Safe / Review-Needed** with a plain-language reason.
-- **Act without fear** — cleanup *moves* items to a reversible quarantine
-  (SQLite-tracked) that you can restore any time. Permanent deletion only after
-  a retention window, with confirmation. Dry-run by default.
-- **Stay tidy** — an organizer files loose downloads into typed folders, with
-  preview and one-command undo.
-- **Prevent the next crunch** — a guardian reports disk pressure and nudges you
-  before the drive fills.
-- **Private & safe** — no telemetry, fully offline, never touches the registry
-  or protected system files.
+Nothing is deleted by default. Every suggestion has a confidence level and a plain-language reason.
 
-## Install
+## What you get
 
-**From a release (Windows x64):** download `purify.exe` (CLI) and/or
-`purify-desktop.exe` (GUI) — plus the `.msi` installer when available — from the
-[Releases](https://github.com/mahdi-mortazavi/purify/releases) page. Verify with
-the published `SHA256SUMS.txt`.
+- **Disk Map** — scan a drive in seconds with a direct NTFS/MFT reader (or a portable fallback) and see the largest consumers.
+- **Safe Cleanup** — 30+ built-in signatures for caches, leftovers and developer clutter, ranked as Safe, Likely Safe or Review Needed.
+- **Quarantine + undo** — cleanup moves items out of the way; restore them anytime. Permanent purge is explicit and delayed.
+- **Organizer** — preview and sort loose files in Downloads with one-command undo.
+- **Disk Guardian** — know when storage pressure is becoming a problem.
+- **Private by design** — offline, no telemetry, no registry edits and no protected-system-file surprises.
 
-**From source:**
+## Start in 60 seconds
 
-```sh
-cargo build --release -p purify-cli        # the `purify` CLI
-cargo build --release -p purify-desktop    # the desktop app (needs the platform webview SDK)
-```
+1. Download the latest [Windows release](https://github.com/Mahdi-mortazavi/purify/releases/latest).
+2. Open **purify** and choose a drive.
+3. Press **Scan** to understand the space, then **Analyze** to get suggestions.
+4. Review the confidence and reason for each item. **Clean** moves approved items to quarantine.
 
-## CLI usage
+The CLI is useful when you want a scriptable, read-only view:
 
-```sh
-# See what's filling a drive (read-only)
+```powershell
 purify scan C:\ --top 20
-purify scan C:\ --mft            # prefer the fast NTFS MFT reader (admin)
-purify scan . --json             # machine-readable
-
-# Find safe-to-reclaim files, with confidence levels (read-only)
 purify analyze C:\Users\me
-
-# Clean — DRY RUN by default; only moves to quarantine with --apply
-purify clean C:\Users\me                        # preview
-purify clean C:\Users\me --apply                # quarantine "safe" items
-purify clean C:\Users\me --apply --min-confidence likely-safe
-
-# Manage the quarantine
-purify list                      # what's held
-purify restore <id>              # undo a cleanup
-purify purge --older-than 30 --yes   # permanent, after retention
-
-# Organize loose files (preview -> apply -> undo)
-purify organize C:\Users\me\Downloads
-purify organize C:\Users\me\Downloads --apply
-purify organize C:\Users\me\Downloads --undo
-
-# Watch disk pressure
-purify guard C:\
+purify clean C:\Users\me                 # preview only
+purify clean C:\Users\me --apply         # reversible quarantine
+purify restore <id>
 ```
 
-## Performance
+## Why it feels fast
 
-purify's speed comes from *architecture*, not micro-optimization: with
-administrator rights it reads the NTFS Master File Table directly (like WizTree)
-instead of walking the tree file-by-file (like WinDirStat), turning a
-minutes-long scan into a seconds-long one. Without admin it falls back to a
-parallel walker (`jwalk`).
+With administrator rights, purify reads the NTFS Master File Table directly instead of walking every file. Without admin it uses a parallel walker. Matching is compiled once, paths are normalized once, and directory sizes are computed only when needed.
 
-Analysis is heavily optimized too: cleanup signatures are compiled once, each
-path is normalized a single time, per-file matching runs in parallel across CPU
-cores, and directory sizing is lazy and targeted. On a realistic ~7,400-file
-user profile (release build), `scan` completes in ~20 ms and `analyze` in
-~28 ms — effectively instant.
+On a representative 7,400-file profile, release builds measured roughly **20 ms for `scan`** and **28 ms for `analyze`**. Results depend on the drive and hardware; the benchmark method is documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
-> A note on GPUs: disk scanning is I/O- and string-bound, not parallel numeric
-> compute, so a GPU offers no speedup for the scan/analyze engine — claiming
-> otherwise would be marketing, not engineering. The desktop UI *does* use the
-> GPU: its treemap renders on the WebView2 hardware-accelerated compositor.
+## For developers
 
-Methodology (reproducible): `purify scan C:\ --json` reports the totals; compare
-against WizTree and WinDirStat on the same volume. Because absolute numbers
-depend heavily on drive contents and hardware, we report them with the exact
-machine spec rather than a single headline figure. Contributions of measured
-results (with specs) are welcome.
+The workspace is deliberately split by risk:
 
-## Roadmap
+| Crate | Responsibility |
+| --- | --- |
+| `purify-core` | Rules, suggestions, quarantine, organizer and guardian; safe Rust only |
+| `purify-ntfs` | The only crate with raw volume/MFT access |
+| `purify-cli` | Scriptable command-line interface |
+| `purify-desktop` | Tauri 2 desktop UI |
+| `knowledge-base/` | Community-editable cleanup signatures |
 
-| Phase | Scope | Status |
-|------:|-------|--------|
-| 0 | Workspace skeleton, safety lints, CI, docs | ✅ |
-| 1 | MFT scanner + portable fallback, disk tree, CLI top-N | ✅ |
-| 2 | Rule engine + 30+ cleanup signatures with confidence | ✅ |
-| 3 | Quarantine + undo + dry-run + scheduled purge | ✅ |
-| 4 | Tauri desktop UI (treemap, one-click safe cleanup) | ✅ |
-| 5 | Organizer + disk-space guardian | ✅ |
-| 6 | Windows x64 release via GitHub Actions, packaging, docs | ✅ |
+```powershell
+git clone https://github.com/Mahdi-mortazavi/purify.git
+cd purify
+cargo test --workspace --exclude purify-desktop
+cargo fmt --all --check
+cargo clippy --workspace --exclude purify-desktop --all-targets -- -D warnings
+```
 
-## Workspace
-
-- **`purify-core`** — pure-Rust engine (scan, rules, suggest, quarantine,
-  organize, guardian, safety). No `unsafe`.
-- **`purify-ntfs`** — direct NTFS/MFT reader; the only crate with raw volume
-  access.
-- **`purify-cli`** — the `purify` binary.
-- **`purify-desktop`** — the Tauri 2 desktop app.
-- **`knowledge-base/`** — community-editable cleanup signatures (TOML).
-
-See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full design and rationale.
+The desktop crate needs the platform WebView SDK. CI runs lint, tests, desktop builds on Windows and Ubuntu, and dependency policy checks on every pull request.
 
 ## Contributing
 
-Contributions — especially cleanup signatures — are welcome and need no Rust.
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md)
-first. Data safety comes before everything.
+The best first contribution is often a cleanup signature: it needs domain knowledge, not Rust. Read [`CONTRIBUTING.md`](CONTRIBUTING.md), explain the safety boundary, add a test when behavior changes, and keep the diff focused.
 
-## Packaging notes
+Ideas, bug reports and UX feedback are welcome in [Issues](https://github.com/Mahdi-mortazavi/purify/issues). Please include Windows version, whether the app was elevated, the command or screen involved, and a safe reproduction path.
 
-- **Installers:** the release workflow builds MSI and NSIS installers via the
-  Tauri bundler on Windows (best-effort; the raw `.exe`s always ship).
-- **winget / MSIX:** planned. The MSI is the basis for a winget manifest; an
-  MSIX package can wrap the same binaries.
-- **Code signing:** release binaries are unsigned today. Signing requires an
-  Authenticode certificate; the workflow is structured so a signing step can be
-  added once a certificate is available (SmartScreen reputation otherwise builds
-  over time).
+## Roadmap
+
+- More Windows-safe signatures and better explanations
+- Winget/MSIX distribution and signed installers
+- Accessibility and keyboard-first polish across the desktop UI
 
 ## License
 
