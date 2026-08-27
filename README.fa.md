@@ -2,7 +2,7 @@
   <img src="docs/assets/purify-mark.svg" width="88" alt="نشان Purify" />
   <h1>Purify | پیورفای</h1>
   <p><strong>دیسک ویندوز را تمیز کن؛ بدون تردید دربارهٔ اینکه چه چیزی امن است.</strong></p>
-  <p>سریع، خصوصی و برگشت‌پذیر؛ ساخته‌شده با Rust و Tauri.</p>
+  <p>🧹 سریع، خصوصی و برگشت‌پذیر. ساخته‌شده با Rust و Tauri.</p>
 
   <p>
     <a href="https://github.com/Mahdi-mortazavi/purify/releases/latest"><strong>دانلود برای ویندوز</strong></a>
@@ -38,12 +38,12 @@
 
 ## چه چیزی دریافت می‌کنی؟
 
-- **نقشهٔ دیسک** — نمایش سریع فضا با خواندن مستقیم NTFS/MFT در حالت مدیر سیستم و اسکن موازی قابل‌حمل در حالت عادی.
-- **پاک‌سازی امن** — بیش از ۳۰ قاعده برای cache، فایل‌های باقی‌مانده و شلوغی‌های توسعه؛ هر مورد با دلیل ساده و قابل‌فهم.
-- **قرنطینه** — پاک‌سازی به‌صورت پیش‌فرض برگشت‌پذیر است. هیچ حذف بی‌صدایی وجود ندارد.
-- **مرتب‌سازی Downloads** — فایل‌های پراکنده را قبل از جابه‌جایی ببین و با یک Undo برگردان.
-- **نگهبان دیسک** — پیش از بحرانی‌شدن فضا، فشار ذخیره‌سازی را ببین.
-- **خصوصی از ابتدا** — آفلاین، بدون تله‌متری، بدون تغییر Registry و بدون وابستگی شبکه در هستهٔ محصول.
+<p>🗺️ <strong>نقشهٔ دیسک</strong> · نمایش سریع فضا با خواندن مستقیم NTFS/MFT در حالت مدیر سیستم و اسکن موازی قابل‌حمل در حالت عادی.</p>
+<p>🛡️ <strong>پاک‌سازی امن</strong> · بیش از ۳۰ قاعده برای cache، فایل‌های باقی‌مانده و شلوغی‌های توسعه؛ هر مورد با دلیل ساده و قابل‌فهم.</p>
+<p>↩️ <strong>قرنطینه</strong> · پاک‌سازی به‌صورت پیش‌فرض برگشت‌پذیر است. هیچ حذف بی‌صدایی وجود ندارد.</p>
+<p>🗂️ <strong>مرتب‌سازی Downloads</strong> · فایل‌های پراکنده را قبل از جابه‌جایی ببین و با یک Undo برگردان.</p>
+<p>🚦 <strong>نگهبان دیسک</strong> · پیش از بحرانی‌شدن فضا، فشار ذخیره‌سازی را ببین.</p>
+<p>🔒 <strong>خصوصی از ابتدا</strong> · آفلاین، بدون تله‌متری، بدون تغییر Registry و بدون وابستگی شبکه در هستهٔ محصول.</p>
 
 ## چرا Purify؟
 
@@ -114,16 +114,16 @@ CI در هر Pull Request قالب‌بندی، Clippy، تست‌ها، build �
 
 ## نقشهٔ راه
 
-- قواعد امن بیشتر برای ویندوز، همراه با توضیحات بهتر
-- انتشار امضاشده با MSIX و Winget
-- دسترسی‌پذیری و تجربهٔ کامل با صفحه‌کلید
-- تاریخچهٔ سبک و قابل‌بررسی برای هر پاک‌سازی
+<p>🧠 قواعد امن بیشتر برای ویندوز، همراه با توضیحات بهتر</p>
+<p>📦 انتشار امضاشده با MSIX و Winget</p>
+<p>♿ دسترسی‌پذیری و تجربهٔ کامل با صفحه‌کلید</p>
+<p>🧾 تاریخچهٔ سبک و قابل‌بررسی برای هر پاک‌سازی</p>
 
 ## لینک‌های پروژه
 
-- [نسخه‌ها](https://github.com/Mahdi-mortazavi/purify/releases) · [Issueها](https://github.com/Mahdi-mortazavi/purify/issues) · [گفت‌وگوها](https://github.com/Mahdi-mortazavi/purify/discussions)
-- [معماری](ARCHITECTURE.md) · [مشارکت](CONTRIBUTING.fa.md) · [امنیت](SECURITY.md)
-- English: [`README.md`](README.md)
+<p>🚀 <a href="https://github.com/Mahdi-mortazavi/purify/releases">نسخه‌ها</a> · <a href="https://github.com/Mahdi-mortazavi/purify/issues">Issueها</a> · <a href="https://github.com/Mahdi-mortazavi/purify/discussions">گفت‌وگوها</a></p>
+<p>🧭 <a href="ARCHITECTURE.md">معماری</a> · <a href="CONTRIBUTING.fa.md">مشارکت</a> · <a href="SECURITY.md">امنیت</a></p>
+<p>🌐 English: <a href="README.md"><code>README.md</code></a></p>
 
 ## مجوز
 

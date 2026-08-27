@@ -2,7 +2,7 @@
   <img src="docs/assets/purify-mark.svg" width="88" alt="Purify logo" />
   <h1>Purify</h1>
   <p><strong>Clean your Windows disk without second-guessing what is safe.</strong></p>
-  <p>Fast, private and reversible disk cleanup for Windows — built with Rust and Tauri.</p>
+  <p>🧹 Fast, private and reversible disk cleanup for Windows. Built with Rust and Tauri.</p>
 
   <p>
     <a href="https://github.com/Mahdi-mortazavi/purify/releases/latest"><strong>Download for Windows</strong></a>
@@ -39,12 +39,12 @@ When a Windows drive fills up, one tool shows a maze of folders and another asks
 
 ## What you get
 
-- **Disk Map** — a fast treemap of the space that matters, using a direct NTFS/MFT reader when elevated and a portable parallel walker otherwise.
-- **Safe Cleanup** — 30+ built-in signatures for caches, leftovers and developer clutter, each with a plain-language reason.
-- **Quarantine** — cleanup is reversible by default. There is no silent delete and no “are you sure?” theatre after the fact.
-- **Organizer** — preview and sort loose files in Downloads with one-command undo.
-- **Disk Guardian** — see storage pressure before it becomes an emergency.
-- **Private by design** — offline, no telemetry, no registry edits, and no network dependency in the core product.
+<p>🗺️ <strong>Disk Map</strong> · A fast treemap of the space that matters, using a direct NTFS/MFT reader when elevated and a portable parallel walker otherwise.</p>
+<p>🛡️ <strong>Safe Cleanup</strong> · 30+ built-in signatures for caches, leftovers and developer clutter, each with a plain-language reason.</p>
+<p>↩️ <strong>Quarantine</strong> · Cleanup is reversible by default. There is no silent delete and no “are you sure?” theatre after the fact.</p>
+<p>🗂️ <strong>Organizer</strong> · Preview and sort loose files in Downloads with one-command undo.</p>
+<p>🚦 <strong>Disk Guardian</strong> · See storage pressure before it becomes an emergency.</p>
+<p>🔒 <strong>Private by design</strong> · Offline, no telemetry, no registry edits, and no network dependency in the core product.</p>
 
 ## Why Purify?
 
@@ -115,16 +115,16 @@ Bug reports and UX feedback are welcome in [Issues](https://github.com/Mahdi-mor
 
 ## Roadmap
 
-- More Windows-safe signatures with better explanations
-- Signed MSIX / Winget distribution
-- Accessibility and keyboard-first polish across the desktop UI
-- A lightweight review history for every cleanup run
+<p>🧠 More Windows-safe signatures with better explanations</p>
+<p>📦 Signed MSIX / Winget distribution</p>
+<p>♿ Accessibility and keyboard-first polish across the desktop UI</p>
+<p>🧾 A lightweight review history for every cleanup run</p>
 
 ## Project links
 
-- [Releases](https://github.com/Mahdi-mortazavi/purify/releases) · [Issues](https://github.com/Mahdi-mortazavi/purify/issues) · [Discussions](https://github.com/Mahdi-mortazavi/purify/discussions)
-- [Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
-- فارسی: [`README.fa.md`](README.fa.md)
+<p>🚀 <a href="https://github.com/Mahdi-mortazavi/purify/releases">Releases</a> · <a href="https://github.com/Mahdi-mortazavi/purify/issues">Issues</a> · <a href="https://github.com/Mahdi-mortazavi/purify/discussions">Discussions</a></p>
+<p>🧭 <a href="ARCHITECTURE.md">Architecture</a> · <a href="CONTRIBUTING.md">Contributing</a> · <a href="SECURITY.md">Security</a></p>
+<p>🌐 فارسی: <a href="README.fa.md"><code>README.fa.md</code></a></p>
 
 ## License
 
