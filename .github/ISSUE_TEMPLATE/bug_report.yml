@@ -1,0 +1,73 @@
+name: Bug report / گزارش باگ
+description: Report a reproducible problem safely / یک مشکل قابل بازتولید را با جزئیات امن گزارش کنید
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping us improve Purify. Please do not attach personal files, real drive images, or private paths.
+        ممنون که به بهترشدن Purify کمک می‌کنید. فایل شخصی، image دیسک واقعی یا مسیر خصوصی ارسال نکنید.
+  - type: input
+    id: version
+    attributes:
+      label: Purify version / نسخهٔ Purify
+      placeholder: "v0.1.4"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version / نسخهٔ ویندوز
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / بخش
+      options:
+        - Desktop UI / رابط دسکتاپ
+        - Disk scan / اسکن دیسک
+        - Cleanup rules / قواعد پاک‌سازی
+        - Quarantine or restore / قرنطینه یا بازگردانی
+        - CLI / خط فرمان
+        - Release or installation / انتشار یا نصب
+        - Other / سایر
+    validations:
+      required: true
+  - type: dropdown
+    id: elevated
+    attributes:
+      label: Was Purify running as administrator? / برنامه با دسترسی مدیر اجرا شد؟
+      options:
+        - "No / خیر"
+        - "Yes / بله"
+        - "Not sure / مطمئن نیستم"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect? / انتظار شما چه بود؟
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened? / چه اتفاقی افتاد؟
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Safe reproduction steps / مراحل بازتولید امن
+      description: Use synthetic paths or placeholders such as C:\Users\you. / از مسیرهای ساختگی یا نمونه استفاده کنید.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots (optional) / لاگ یا تصویر (اختیاری)
+      description: Redact usernames, personal paths, file names and tokens before sharing.
