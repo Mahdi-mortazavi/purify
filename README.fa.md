@@ -1,42 +1,72 @@
-# پیورفای | purify
-
 <div dir="rtl" align="center">
+  <img src="docs/assets/purify-mark.svg" width="88" alt="نشان Purify" />
+  <h1>Purify | پیورفای</h1>
+  <p><strong>دیسک ویندوز را تمیز کن؛ بدون تردید دربارهٔ اینکه چه چیزی امن است.</strong></p>
+  <p>سریع، خصوصی و برگشت‌پذیر؛ ساخته‌شده با Rust و Tauri.</p>
 
-**ببین چه چیزی دیسکت را پر کرده؛ بدون ترس آزادش کن.**
+  <p>
+    <a href="https://github.com/Mahdi-mortazavi/purify/releases/latest"><strong>دانلود برای ویندوز</strong></a>
+    · <a href="#how-it-works">نحوهٔ کار</a>
+    · <a href="README.md">English</a>
+    · <a href="https://github.com/Mahdi-mortazavi/purify/issues/new?template=bug_report.yml">گزارش باگ</a>
+    · <a href="CONTRIBUTING.fa.md">مشارکت</a>
+  </p>
 
-ابزار سریع، خصوصی و برگشت‌پذیر برای پاک‌سازی دیسک در ویندوز — ساخته‌شده با Rust و Tauri.
-
-[![وضعیت CI](https://github.com/Mahdi-mortazavi/purify/actions/workflows/ci.yml/badge.svg)](https://github.com/Mahdi-mortazavi/purify/actions/workflows/ci.yml)
-[![آخرین نسخه](https://img.shields.io/github/v/release/Mahdi-mortazavi/purify?sort=semver&color=0a84ff)](https://github.com/Mahdi-mortazavi/purify/releases/latest)
-[![مجوز MIT](https://img.shields.io/badge/license-MIT-34c759.svg)](LICENSE)
-[English](README.md) · [گزارش باگ](https://github.com/Mahdi-mortazavi/purify/issues/new) · [مشارکت](CONTRIBUTING.md)
-
+  <p>
+    <a href="https://github.com/Mahdi-mortazavi/purify/actions/workflows/ci.yml"><img src="https://github.com/Mahdi-mortazavi/purify/actions/workflows/ci.yml/badge.svg" alt="وضعیت CI" /></a>
+    <a href="https://github.com/Mahdi-mortazavi/purify/releases/latest"><img src="https://img.shields.io/github/v/release/Mahdi-mortazavi/purify?sort=semver&color=0A84FF" alt="آخرین نسخه" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-34C759" alt="مجوز MIT" /></a>
+  </p>
 </div>
 
-وقتی فضای دیسک تمام می‌شود، ابزارهای معمول یا فقط انبوهی از پوشه‌ها را نشان می‌دهند یا از شما می‌خواهند فایل‌هایی را حذف کنید که نمی‌دانید چه هستند. **purify این فاصله را پر می‌کند:** اول بفهم چه چیزی بزرگ است، بعد تصمیم بگیر چه چیزی امن است، آن را به قرنطینهٔ برگشت‌پذیر منتقل کن و قبل از بحران بعدی باخبر شو.
+<br />
 
-به‌صورت پیش‌فرض هیچ فایلی حذف نمی‌شود. هر پیشنهاد سطح اطمینان و دلیل ساده و قابل‌فهم دارد.
+<div align="center">
+  <img src="docs/assets/product-preview.svg" alt="پیش‌نمایش Purify؛ نقشهٔ دیسک و پیشنهادهای پاک‌سازی امن" width="920" />
+</div>
 
-## چه چیزهایی دریافت می‌کنی؟
+## مسئله پیدا کردن فایل نیست؛ اعتماد به تصمیم است
 
-- **نقشهٔ دیسک** — اسکن سریع با خواندن مستقیم NTFS/MFT یا حالت جایگزین قابل‌حمل، برای پیدا کردن بزرگ‌ترین مصرف‌کننده‌ها.
-- **پاک‌سازی امن** — بیش از ۳۰ قانون برای cacheها، فایل‌های باقی‌مانده و شلوغی‌های توسعه، با سه سطح «امن»، «احتمالاً امن» و «نیازمند بررسی».
-- **قرنطینه و بازگردانی** — پاک‌سازی فقط فایل‌ها را جابه‌جا می‌کند؛ هر زمان خواستی Restore کن. حذف دائمی جداگانه و با تأخیر انجام می‌شود.
-- **مرتب‌سازی** — پیش‌نمایش و دسته‌بندی فایل‌های پراکندهٔ Downloads با امکان Undo.
-- **نگهبان دیسک** — قبل از بحرانی شدن فشار فضای ذخیره‌سازی باخبر شو.
-- **خصوصی و آفلاین** — بدون تله‌متری، بدون دستکاری Registry و بدون لمس فایل‌های محافظت‌شدهٔ سیستم.
+وقتی فضای درایو ویندوز تمام می‌شود، یک ابزار فقط دیوار بلندی از پوشه‌ها نشان می‌دهد و ابزار دیگر از شما می‌خواهد کورکورانه حذف کنید. Purify مسیر آرام‌تری می‌سازد: **فضا را بفهم، دلیل هر پیشنهاد را ببین و بعد با امکان بازگشت پاک‌سازی کن.**
 
-## شروع در یک دقیقه
+<a id="how-it-works"></a>
+## چطور کار می‌کند؟
+
+| ۱ · فهمیدن | ۲ · تصمیم‌گیری | ۳ · بازگشت |
+| --- | --- | --- |
+| درایو را اسکن کن و بزرگ‌ترین مصرف‌کننده‌ها را یک‌جا ببین. | پیشنهادهای قابل‌توضیح را با سطح اطمینان ببین: امن، احتمالاً امن یا نیازمند بررسی. | موارد تأییدشده ابتدا به قرنطینهٔ محلی می‌روند؛ هر زمان خواستی برگردانشان. حذف دائمی کاملاً صریح است. |
+
+## چه چیزی دریافت می‌کنی؟
+
+- **نقشهٔ دیسک** — نمایش سریع فضا با خواندن مستقیم NTFS/MFT در حالت مدیر سیستم و اسکن موازی قابل‌حمل در حالت عادی.
+- **پاک‌سازی امن** — بیش از ۳۰ قاعده برای cache، فایل‌های باقی‌مانده و شلوغی‌های توسعه؛ هر مورد با دلیل ساده و قابل‌فهم.
+- **قرنطینه** — پاک‌سازی به‌صورت پیش‌فرض برگشت‌پذیر است. هیچ حذف بی‌صدایی وجود ندارد.
+- **مرتب‌سازی Downloads** — فایل‌های پراکنده را قبل از جابه‌جایی ببین و با یک Undo برگردان.
+- **نگهبان دیسک** — پیش از بحرانی‌شدن فضا، فشار ذخیره‌سازی را ببین.
+- **خصوصی از ابتدا** — آفلاین، بدون تله‌متری، بدون تغییر Registry و بدون وابستگی شبکه در هستهٔ محصول.
+
+## چرا Purify؟
+
+| | ابزارهای معمول پوشه | پاک‌کننده‌های یک‌کلیکی | **Purify** |
+| --- | --- | --- | --- |
+| فهمیدن محل مصرف فضا | ناقص | معمولاً نه | **نقشهٔ دیسک و بزرگ‌ترین مصرف‌کننده‌ها** |
+| توضیح اینکه چه چیزی قابل حذف است | ندارد | گاهی | **دلیل و سطح اطمینان برای هر پیشنهاد** |
+| امکان بازگشت | دستی | معمولاً ندارد | **قرنطینهٔ محلی و Restore** |
+| کارکرد آفلاین | بله | متغیر | **بله، از ابتدا** |
+| مناسب توسعه‌دهنده‌ها | نه | نه | **CLI، قوانین TOML و workspace در Rust** |
+
+## شروع در ۶۰ ثانیه
 
 ۱. آخرین [نسخهٔ ویندوز](https://github.com/Mahdi-mortazavi/purify/releases/latest) را دانلود کن.
+۲. Purify را باز کن و درایو یا پوشه را انتخاب کن.
+۳. برای دیدن وضعیت فضا **Scan** و برای دریافت پیشنهادها **Analyze** را بزن.
+۴. دلیل و سطح اطمینان را بخوان و با **Clean** موارد تأییدشده را به قرنطینه بفرست.
 
-۲. purify را باز کن و یک درایو انتخاب کن.
+> به‌صورت پیش‌فرض هیچ فایلی حذف نمی‌شود؛ کنترل همیشه دست توست.
 
-۳. برای دیدن وضعیت **Scan** و برای دریافت پیشنهادها **Analyze** را بزن.
+### حالت قابل‌اسکریپت
 
-۴. سطح اطمینان و دلیل هر مورد را بخوان؛ گزینهٔ **Clean** موارد تأییدشده را به قرنطینه منتقل می‌کند.
-
-برای استفادهٔ اسکریپتی و فقط‌خواندنی:
+برای بررسی فقط‌خواندنی، اتوماسیون و عیب‌یابی CI:
 
 ```powershell
 purify scan C:\ --top 20
@@ -46,34 +76,55 @@ purify clean C:\Users\me --apply         # قرنطینهٔ برگشت‌پذی�
 purify restore <id>
 ```
 
-## برای توسعه‌دهندگان
+## سریع، اما محتاط
 
-پروژه برای جدا نگه‌داشتن ریسک‌ها به چند بخش تقسیم شده است:
+با دسترسی مدیر، Purify مستقیماً Master File Table در NTFS را می‌خواند؛ بدون آن، از اسکن موازی استفاده می‌کند. الگوها یک‌بار کامپایل می‌شوند، مسیرها یک‌بار نرمال می‌شوند و اندازهٔ پوشه فقط وقتی لازم باشد محاسبه می‌شود.
+
+در یک پروفایل نمونه با ۷٬۴۰۰ فایل، build نهایی حدود **۲۰ میلی‌ثانیه برای `scan`** و **۲۸ میلی‌ثانیه برای `analyze`** ثبت کرده است. نتیجه به دیسک و سخت‌افزار وابسته است؛ روش اندازه‌گیری در [`ARCHITECTURE.md`](ARCHITECTURE.md) آمده است.
+
+## workspace کوچک، مرزهای روشن
 
 | بخش | مسئولیت |
 | --- | --- |
 | `purify-core` | قوانین، پیشنهادها، قرنطینه، مرتب‌سازی و نگهبان؛ فقط Rust امن |
-| `purify-ntfs` | تنها بخشی که به volume و MFT خام دسترسی دارد |
-| `purify-cli` | رابط خط فرمان و قابل‌اسکریپت |
-| `purify-desktop` | رابط دسکتاپ با Tauri 2 |
-| `knowledge-base/` | قوانین پاک‌سازی قابل ویرایش توسط جامعه |
+| `purify-ntfs` | تنها crate دارای دسترسی خام به volume/MFT |
+| `purify-cli` | رابط خط فرمان قابل‌اسکریپت |
+| `purify-desktop` | تجربهٔ دسکتاپ با Tauri 2 |
+| `knowledge-base/` | قواعد پاک‌سازی قابل‌ویرایش توسط جامعه |
 
 ```powershell
 git clone https://github.com/Mahdi-mortazavi/purify.git
 cd purify
-cargo test --workspace --exclude purify-desktop
+cargo test --workspace
 cargo fmt --all --check
-cargo clippy --workspace --exclude purify-desktop --all-targets -- -D warnings
+cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-راهنمای کامل معماری در [`ARCHITECTURE.md`](ARCHITECTURE.md) و قوانین مشارکت در [`CONTRIBUTING.md`](CONTRIBUTING.md) قرار دارد. حتی افزودن یک قانون پاک‌سازی به Rust نیاز ندارد؛ فقط مرز ایمنی و تست آن را دقیق توضیح بده.
+CI در هر Pull Request قالب‌بندی، Clippy، تست‌ها، build دسکتاپ روی Windows و Ubuntu و سیاست وابستگی‌ها را بررسی می‌کند.
 
-## مسیر پیش‌رو
+## به لایهٔ اعتماد کمک کن
 
-- قوانین بیشتر برای سناریوهای امن ویندوز و توضیحات بهتر
-- انتشار از طریق Winget/MSIX و installer امضاشده
-- دسترس‌پذیری بهتر و تجربهٔ کامل‌تر با صفحه‌کلید
+برای بهترکردن Purify لازم نیست متخصص Rust باشی. افزودن یک قاعدهٔ پاک‌سازی به `knowledge-base/` وقتی ارزشمند است که هدف، دلیل امن‌بودن و روش تستش روشن باشد.
+
+۱. [`CONTRIBUTING.fa.md`](CONTRIBUTING.fa.md) و [`ARCHITECTURE.md`](ARCHITECTURE.md) را بخوان.
+۲. از [Issueهای مناسب شروع](https://github.com/Mahdi-mortazavi/purify/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) یا یک بهبود کوچک و مشخص شروع کن.
+۳. مرز ایمنی را صریح نگه دار و هر تغییر رفتاری را با تست قابل‌تکرار همراه کن.
+
+گزارش باگ و بازخورد UX در [Issueها](https://github.com/Mahdi-mortazavi/purify/issues) خوش‌آمد است. نسخهٔ ویندوز، وضعیت دسترسی مدیر، صفحه یا فرمان درگیر و مسیر بازتولید امن را بنویس.
+
+## نقشهٔ راه
+
+- قواعد امن بیشتر برای ویندوز، همراه با توضیحات بهتر
+- انتشار امضاشده با MSIX و Winget
+- دسترسی‌پذیری و تجربهٔ کامل با صفحه‌کلید
+- تاریخچهٔ سبک و قابل‌بررسی برای هر پاک‌سازی
+
+## لینک‌های پروژه
+
+- [نسخه‌ها](https://github.com/Mahdi-mortazavi/purify/releases) · [Issueها](https://github.com/Mahdi-mortazavi/purify/issues) · [گفت‌وگوها](https://github.com/Mahdi-mortazavi/purify/discussions)
+- [معماری](ARCHITECTURE.md) · [مشارکت](CONTRIBUTING.fa.md) · [امنیت](SECURITY.md)
+- English: [`README.md`](README.md)
 
 ## مجوز
 
-MIT © مهدی مرتضوی. متن کامل در [`LICENSE`](LICENSE) است.
+MIT © Mahdi Mortazavi. متن کامل در [`LICENSE`](LICENSE) است.

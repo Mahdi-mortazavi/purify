@@ -1,0 +1,45 @@
+name: Feature request / پیشنهاد قابلیت
+description: Suggest a focused improvement / یک بهبود مشخص پیشنهاد دهید
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A strong request starts with the user problem, not a solution. توضیح مسئلهٔ کاربر از راه‌حل پیشنهادی مهم‌تر است.
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem / مسئلهٔ کاربر
+      placeholder: "When ... I need ... because ..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed experience / تجربهٔ پیشنهادی
+      description: Describe the smallest useful version and how it should feel.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and privacy considerations / ملاحظات ایمنی و حریم خصوصی
+      description: Explain how this interacts with quarantine, restore, offline use, or permissions.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / بخش
+      options:
+        - Desktop UI / رابط دسکتاپ
+        - Disk map / نقشهٔ دیسک
+        - Cleanup rules / قواعد پاک‌سازی
+        - Quarantine / قرنطینه
+        - CLI / خط فرمان
+        - Documentation / مستندات
+        - Other / سایر
+    validations:
+      required: true

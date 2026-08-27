@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability / آسیب‌پذیری امنیتی
+    url: https://github.com/Mahdi-mortazavi/purify/security/advisories/new
+    about: Please report security issues privately. / مشکلات امنیتی را خصوصی گزارش کنید.
+  - name: Product discussion / گفت‌وگوی محصول
+    url: https://github.com/Mahdi-mortazavi/purify/discussions
+    about: Share ideas and UX feedback with the community. / ایده‌ها و بازخورد UX را با جامعه در میان بگذارید.
